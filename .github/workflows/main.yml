@@ -29,24 +29,24 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: 5. تثبيت المكتبات
+      - name: 5. تجهيز المكتبات تلقائياً
         run: |
+          # هذه الخطوة ستصنع ملف المكتبات لتجنب أي خطأ
+          echo "flet" > requirements.txt
+          echo "opencv-python-headless" >> requirements.txt
           pip install --upgrade pip
-          pip install flet opencv-python-headless
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install -r requirements.txt
 
       - name: 6. بناء التطبيق (The Final Build)
         run: |
-          # تم تعديل الصلاحيات بوضع مسافة بينها لتطابق متطلبات Flet
+          # تم تصحيح الأوامر: استخدام --project والاعتماد على requirements
           flet build apk \
-            --project-name "HusseinTool" \
+            --project "HusseinTool" \
             --description "تطبيق التحكم الاحترافي" \
-            --permissions camera microphone \
-            --include-packages flet,opencv-python-headless
+            --permissions camera microphone
 
       - name: 7. رفع ملف الـ APK الجاهز
         uses: actions/upload-artifact@v4
         with:
           name: Hussein-Tool-Final
           path: build/apk/*.apk
-
