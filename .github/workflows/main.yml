@@ -14,35 +14,45 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: 2. بناء هيكل التطبيق الأصلي (بدون مكتبات خارجية)
+      - name: 2. بناء هيكل التطبيق الأصلي
         run: |
           mkdir -p app/src/main/java/com/hussein/notifier
           mkdir -p app/src/main/res/layout
 
-          # --- إعدادات المشروع الأساسية ---
+          # --- إعدادات المشروع (الطريقة الكلاسيكية المضمونة) ---
           cat << 'EOF' > settings.gradle
           rootProject.name = "HusseinNotifier"
           include ':app'
           EOF
 
           cat << 'EOF' > build.gradle
-          plugins {
-              id 'com.android.application' version '8.2.0' apply false
+          buildscript {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+              dependencies {
+                  classpath 'com.android.tools.build:gradle:8.2.0'
+              }
+          }
+          allprojects {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
           }
           EOF
 
-          # --- إعدادات تطبيق الأندرويد (تم إضافة دعم اللغة العربية UTF-8) ---
           cat << 'EOF' > app/build.gradle
-          plugins {
-              id 'com.android.application'
-          }
+          apply plugin: 'com.android.application'
+
           android {
               namespace 'com.hussein.notifier'
-              compileSdk 34
+              compileSdkVersion 34
               defaultConfig {
                   applicationId "com.hussein.notifier"
-                  minSdk 24
-                  targetSdk 34
+                  minSdkVersion 24
+                  targetSdkVersion 34
                   versionCode 1
                   versionName "1.0"
               }
@@ -51,12 +61,8 @@ jobs:
                   targetCompatibility JavaVersion.VERSION_17
               }
           }
-          tasks.withType(JavaCompile) {
-              options.encoding = "UTF-8"
-          }
           EOF
 
-          # --- ملف الصلاحيات (نظيف ومباشر) ---
           cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -83,7 +89,6 @@ jobs:
           </manifest>
           EOF
 
-          # --- واجهة التطبيق (تم تبسيطها لضمان البناء) ---
           cat << 'EOF' > app/src/main/res/layout/activity_main.xml
           <?xml version="1.0" encoding="utf-8"?>
           <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -107,7 +112,6 @@ jobs:
           </LinearLayout>
           EOF
 
-          # --- الكود الرئيسي (بدون AppCompat لتجنب الأخطاء) ---
           cat << 'EOF' > app/src/main/java/com/hussein/notifier/MainActivity.java
           package com.hussein.notifier;
           import android.app.Activity;
@@ -128,7 +132,6 @@ jobs:
           }
           EOF
 
-          # --- خدمة الإشعارات (التي ترسل لتليجرام) ---
           cat << 'EOF' > app/src/main/java/com/hussein/notifier/MyNotificationListener.java
           package com.hussein.notifier;
           import android.service.notification.NotificationListenerService;
@@ -168,7 +171,7 @@ jobs:
           }
           EOF
 
-      - name: 3. إعداد أداة البناء (تحديد النسخة المتوافقة)
+      - name: 3. إعداد أداة البناء (Gradle)
         uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: '8.5'
