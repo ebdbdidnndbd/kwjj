@@ -1,0 +1,53 @@
+name: Hussein Professional Builder
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch: # يسمح لك بتشغيل البناء يدوياً أيضاً
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. جلب الكود من المستودع
+        uses: actions/checkout@v4
+
+      - name: 2. إعداد لغة بايثون
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip' # تخزين المكتبات لسرعة التحميل في المرة القادمة
+
+      - name: 3. إعداد بيئة جافا (مهمة جداً للأندرويد)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: 4. إعداد فلاتر (Flutter SDK)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: 5. تثبيت المكتبات اللازمة
+        run: |
+          pip install --upgrade pip
+          pip install flet opencv-python-headless
+          # إذا كان عندك ملف requirements.txt سيثبت ما بداخله أيضاً
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: 6. تنظيف البيئة وبدء البناء (The Build)
+        run: |
+          # إضافة صلاحيات الكاميرا، الصوت، الإنترنت، والتخزين
+          flet build apk \
+            --project-name "HusseinTool" \
+            --description "تطبيق التحكم الخاص بحسين" \
+            --permissions CAMERA,INTERNET,RECORD_AUDIO,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE \
+            --include-packages flet,opencv-python-headless
+
+      - name: 7. حفظ وتخزين ملف الـ APK (Storage)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Hussein-Professional-APK
+          path: build/apk/*.apk
+          retention-days: 7 # سيحفظ الملف لمدة 7 أيام للتحميل
