@@ -1,4 +1,4 @@
-name: Hussein Final Professional Builder
+name: Hussein Guaranteed Builder
 on:
   push:
     branches: [ "main" ]
@@ -17,7 +17,7 @@ jobs:
           python-version: '3.10'
           cache: 'pip'
 
-      - name: 3. إعداد بيئة جافا (للأندرويد)
+      - name: 3. إعداد بيئة جافا (مهمة للأندرويد)
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
@@ -29,24 +29,18 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: 5. تجهيز المكتبات تلقائياً
+      - name: 5. تثبيت المكتبات (Flet فقط)
         run: |
-          # هذه الخطوة ستصنع ملف المكتبات لتجنب أي خطأ
           echo "flet" > requirements.txt
-          echo "opencv-python-headless" >> requirements.txt
           pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: 6. بناء التطبيق (The Final Build)
+      - name: 6. بناء التطبيق (The Build)
         run: |
-          # تم تصحيح الأوامر: استخدام --project والاعتماد على requirements
-          flet build apk \
-            --project "HusseinTool" \
-            --description "تطبيق التحكم الاحترافي" \
-            --permissions camera microphone
+          flet build apk --project "HusseinApp" --description "تطبيق حسين الأساسي"
 
-      - name: 7. رفع ملف الـ APK الجاهز
+      - name: 7. حفظ ملف الـ APK
         uses: actions/upload-artifact@v4
         with:
-          name: Hussein-Tool-Final
+          name: Hussein-App-APK
           path: build/apk/*.apk
