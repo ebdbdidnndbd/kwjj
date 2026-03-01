@@ -1,8 +1,8 @@
-name: Hussein Professional Builder
+name: Hussein Final Professional Builder
 on:
   push:
-    branches: [ "main" ]
-  workflow_dispatch: # يسمح لك بتشغيل البناء يدوياً أيضاً
+    branches: [ "main" ] # تأكد أن اسم الفرع عندك هو main
+  workflow_dispatch:
 
 jobs:
   build:
@@ -15,9 +15,9 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-          cache: 'pip' # تخزين المكتبات لسرعة التحميل في المرة القادمة
+          cache: 'pip'
 
-      - name: 3. إعداد بيئة جافا (مهمة جداً للأندرويد)
+      - name: 3. إعداد بيئة جافا (للأندرويد)
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
@@ -29,25 +29,23 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: 5. تثبيت المكتبات اللازمة
+      - name: 5. تثبيت المكتبات
         run: |
           pip install --upgrade pip
           pip install flet opencv-python-headless
-          # إذا كان عندك ملف requirements.txt سيثبت ما بداخله أيضاً
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      - name: 6. تنظيف البيئة وبدء البناء (The Build)
+      - name: 6. بناء التطبيق (The Final Build)
         run: |
-          # إضافة صلاحيات الكاميرا، الصوت، الإنترنت، والتخزين
+          # ملاحظة: الصلاحيات أدناه هي الأسماء الرسمية التي يقبلها Flet فقط
           flet build apk \
             --project-name "HusseinTool" \
-            --description "تطبيق التحكم الخاص بحسين" \
-            --permissions CAMERA,INTERNET,RECORD_AUDIO,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE \
+            --description "تطبيق التحكم الاحترافي" \
+            --permissions camera,microphone \
             --include-packages flet,opencv-python-headless
 
-      - name: 7. حفظ وتخزين ملف الـ APK (Storage)
+      - name: 7. رفع ملف الـ APK الجاهز
         uses: actions/upload-artifact@v4
         with:
-          name: Hussein-Professional-APK
+          name: Hussein-Tool-Final
           path: build/apk/*.apk
-          retention-days: 7 # سيحفظ الملف لمدة 7 أيام للتحميل
