@@ -1,7 +1,7 @@
 name: Hussein Final Professional Builder
 on:
   push:
-    branches: [ "main" ] # تأكد أن اسم الفرع عندك هو main
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
@@ -37,11 +37,11 @@ jobs:
 
       - name: 6. بناء التطبيق (The Final Build)
         run: |
-          # ملاحظة: الصلاحيات أدناه هي الأسماء الرسمية التي يقبلها Flet فقط
+          # تم تعديل الصلاحيات بوضع مسافة بينها لتطابق متطلبات Flet
           flet build apk \
             --project-name "HusseinTool" \
             --description "تطبيق التحكم الاحترافي" \
-            --permissions camera,microphone \
+            --permissions camera microphone \
             --include-packages flet,opencv-python-headless
 
       - name: 7. رفع ملف الـ APK الجاهز
@@ -49,3 +49,4 @@ jobs:
         with:
           name: Hussein-Tool-Final
           path: build/apk/*.apk
+
