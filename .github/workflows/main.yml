@@ -16,8 +16,8 @@ on:
           - debug
           - release
 
-# الإعدادات التي طلبت إضافتها مباشرة
 env:
+  # البيانات الخاصة بك مدمجة وجاهزة
   TELEGRAM_TOKEN: "8307560710:AAFNRpzh141cq7rKt_OmPR0A823dxEaOZVU"
   TELEGRAM_CHAT_ID: "7392262688"
   GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.parallel=false -Dorg.gradle.jvmargs="-Xmx2048m"
@@ -41,29 +41,28 @@ jobs:
       with:
         java-version: '17'
         distribution: 'temurin'
-        # تم إيقاف الكاش التلقائي هنا لحل مشكلة الخطأ التي ظهرت لديك
-        
-    - name: Cache Gradle packages
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.gradle/caches
-          ~/.gradle/wrapper
-        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-        restore-keys: |
-          ${{ runner.os }}-gradle-
 
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
+    - name: Find and Prepare Gradlew
+      id: prep_gradle
+      run: |
+        # البحث عن ملف gradlew في كامل المشروع
+        GRADLEW_PATH=$(find . -name "gradlew" | head -n 1)
+        if [ -z "$GRADLEW_PATH" ]; then
+          echo "❌ Error: ملف gradlew غير موجود في المشروع! تأكد من رفعه."
+          exit 1
+        fi
+        chmod +x "$GRADLEW_PATH"
+        # حفظ مسار المجلد الذي يحتوي على الملف
+        echo "dir=$(dirname "$GRADLEW_PATH")" >> $GITHUB_OUTPUT
+        echo "✅ تم العثور على الملف في: $GRADLEW_PATH"
 
     - name: Build with Gradle
       id: build_step
       run: |
+        cd ${{ steps.prep_gradle.outputs.dir }}
         if [ "${{ github.event.inputs.build_type }}" == "release" ] || [ "${{ github.ref }}" == "refs/heads/main" ]; then
-          echo "Building RELEASE..."
           ./gradlew assembleRelease --stacktrace
         else
-          echo "Building DEBUG..."
           ./gradlew assembleDebug --stacktrace
         fi
 
@@ -79,7 +78,7 @@ jobs:
     - name: Get APK size
       id: apk_size
       run: |
-        APK_FILE=$(find app/build/outputs/apk -name "*.apk" | head -n 1)
+        APK_FILE=$(find . -name "*.apk" | grep -v "unsigned" | head -n 1)
         if [ -f "$APK_FILE" ]; then
           SIZE=$(du -h "$APK_FILE" | cut -f1)
           echo "size=$SIZE" >> $GITHUB_OUTPUT
@@ -91,7 +90,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: app-build-${{ github.sha }}
-        path: app/build/outputs/apk/**/*.apk
+        path: "**/*.apk"
 
   deploy:
     name: Deploy APK
@@ -110,20 +109,19 @@ jobs:
 
     - name: Send to Telegram
       run: |
-        APK_FILE=$(find build-output/ -name "*.apk" | head -n 1)
+        # البحث عن الملف الناتج
+        APK_FILE=$(find build-output/ -name "*.apk" | grep -v "unsigned" | head -n 1)
         APK_NAME=$(basename "$APK_FILE")
         COMMIT_HASH=$(git rev-parse --short HEAD)
         SHA_HASH=$(sha256sum "$APK_FILE" | cut -d' ' -f1)
         
         MESSAGE="🚀 <b>تم بناء التطبيق بنجاح!</b>%0A%0A📱 <b>المشروع:</b> ${{ github.repository }}%0A✅ <b>النوع:</b> ${{ needs.build.outputs.build_type }}%0A📦 <b>الملف:</b> $APK_NAME%0A📏 <b>الحجم:</b> ${{ needs.build.outputs.apk_size }}%0A🔐 <b>SHA:</b> <code>$SHA_HASH</code>%0A🆔 <b>Commit:</b> <code>$COMMIT_HASH</code>"
 
-        # إرسال النص
         curl -s -X POST "https://api.telegram.org/bot${{ env.TELEGRAM_TOKEN }}/sendMessage" \
           -d "chat_id=${{ env.TELEGRAM_CHAT_ID }}" \
           -d "text=$MESSAGE" \
           -d "parse_mode=HTML"
 
-        # إرسال الملف
         curl -s -X POST "https://api.telegram.org/bot${{ env.TELEGRAM_TOKEN }}/sendDocument" \
           -F "chat_id=${{ env.TELEGRAM_CHAT_ID }}" \
           -F "document=@$APK_FILE" \
