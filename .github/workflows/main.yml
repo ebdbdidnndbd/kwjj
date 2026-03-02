@@ -21,14 +21,17 @@ jobs:
         uses: subosito/flutter-action@v2
         with: { channel: 'stable' }
 
-      # --- هذا هو الحل السحري للمشكلة ---
-      - name: 5. قبول تراخيص الأندرويد تلقائياً 📝
+      - name: 5. قبول تراخيص الأندرويد 📝
         run: yes | flutter doctor --android-licenses
-      # --------------------------------
 
-      - name: 6. تثبيت المكتبات اللازمة
+      # --- الحل السحري لتنظيف المكتبات ---
+      - name: 6. تنظيف وتحديد المكتبات بدقة 🧹
         run: |
-          pip install flet requests
+          rm -f requirements.txt
+          echo "flet" > requirements.txt
+          echo "requests" >> requirements.txt
+          pip install -r requirements.txt
+      # --------------------------------
 
       - name: 7. البناء والتحويل إلى APK 🚀
         run: |
