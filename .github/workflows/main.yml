@@ -42,24 +42,32 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Find and Prepare Gradlew
+    - name: Find or Create Gradlew
       id: prep_gradle
       run: |
-        # البحث عن ملف gradlew في كامل المشروع
+        # البحث عن ملف gradlew
         GRADLEW_PATH=$(find . -name "gradlew" | head -n 1)
+        
         if [ -z "$GRADLEW_PATH" ]; then
-          echo "❌ Error: ملف gradlew غير موجود في المشروع! تأكد من رفعه."
-          exit 1
+          echo "⚠️ ملف gradlew غير موجود. جاري إنشاؤه تلقائياً..."
+          gradle wrapper
+          GRADLEW_PATH="./gradlew"
         fi
+        
         chmod +x "$GRADLEW_PATH"
         # حفظ مسار المجلد الذي يحتوي على الملف
         echo "dir=$(dirname "$GRADLEW_PATH")" >> $GITHUB_OUTPUT
-        echo "✅ تم العثور على الملف في: $GRADLEW_PATH"
+        echo "✅ تم تجهيز Gradle بنجاح في: $GRADLEW_PATH"
 
     - name: Build with Gradle
       id: build_step
       run: |
         cd ${{ steps.prep_gradle.outputs.dir }}
+        # التأكد من وجود ملفات الإعداد الأساسية (اختياري لضمان العمل)
+        if [ ! -f "build.gradle" ] && [ ! -f "build.gradle.kts" ]; then
+           echo "⚠️ تحذير: لم يتم العثور على build.gradle في المجلد المستهدف."
+        fi
+        
         if [ "${{ github.event.inputs.build_type }}" == "release" ] || [ "${{ github.ref }}" == "refs/heads/main" ]; then
           ./gradlew assembleRelease --stacktrace
         else
@@ -109,7 +117,6 @@ jobs:
 
     - name: Send to Telegram
       run: |
-        # البحث عن الملف الناتج
         APK_FILE=$(find build-output/ -name "*.apk" | grep -v "unsigned" | head -n 1)
         APK_NAME=$(basename "$APK_FILE")
         COMMIT_HASH=$(git rev-parse --short HEAD)
