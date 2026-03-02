@@ -1,148 +1,132 @@
-name: Build and Deploy Android App
+name: Hussein Auto-Build App
 
 on:
-  push:
-    branches: [ main, master, develop ]
-  pull_request:
-    branches: [ main, master ]
-  workflow_dispatch:
-    inputs:
-      build_type:
-        description: 'Build type (debug/release)'
-        required: true
-        default: 'debug'
-        type: choice
-        options:
-          - debug
-          - release
+  workflow_dispatch: # يظهر لك زر التشغيل يدوياً
 
 env:
-  # البيانات الخاصة بك مدمجة وجاهزة
+  # بياناتك التي زودتني بها
   TELEGRAM_TOKEN: "8307560710:AAFNRpzh141cq7rKt_OmPR0A823dxEaOZVU"
   TELEGRAM_CHAT_ID: "7392262688"
-  GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.parallel=false -Dorg.gradle.jvmargs="-Xmx2048m"
 
 jobs:
-  build:
-    name: Build APK
+  create-and-build:
     runs-on: ubuntu-latest
-    outputs:
-      apk_size: ${{ steps.apk_size.outputs.size }}
-      build_type: ${{ steps.set_type.outputs.type }}
-    
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+      - name: Checkout (Empty Repo)
+        uses: actions/checkout@v4
 
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
 
-    - name: Find or Create Gradlew
-      id: prep_gradle
-      run: |
-        # البحث عن ملف gradlew
-        GRADLEW_PATH=$(find . -name "gradlew" | head -n 1)
-        
-        if [ -z "$GRADLEW_PATH" ]; then
-          echo "⚠️ ملف gradlew غير موجود. جاري إنشاؤه تلقائياً..."
-          gradle wrapper
-          GRADLEW_PATH="./gradlew"
-        fi
-        
-        chmod +x "$GRADLEW_PATH"
-        # حفظ مسار المجلد الذي يحتوي على الملف
-        echo "dir=$(dirname "$GRADLEW_PATH")" >> $GITHUB_OUTPUT
-        echo "✅ تم تجهيز Gradle بنجاح في: $GRADLEW_PATH"
+      - name: 🛠️ Create Android Project From Scratch
+        run: |
+          echo "جاري إنشاء هيكل التطبيق..."
+          mkdir -p app/src/main/java/com/hussein/myapp
+          mkdir -p app/src/main/res/layout
+          mkdir -p app/src/main/res/values
 
-    - name: Build with Gradle
-      id: build_step
-      run: |
-        cd ${{ steps.prep_gradle.outputs.dir }}
-        # التأكد من وجود ملفات الإعداد الأساسية (اختياري لضمان العمل)
-        if [ ! -f "build.gradle" ] && [ ! -f "build.gradle.kts" ]; then
-           echo "⚠️ تحذير: لم يتم العثور على build.gradle في المجلد المستهدف."
-        fi
-        
-        if [ "${{ github.event.inputs.build_type }}" == "release" ] || [ "${{ github.ref }}" == "refs/heads/main" ]; then
-          ./gradlew assembleRelease --stacktrace
-        else
-          ./gradlew assembleDebug --stacktrace
-        fi
+          # 1. إنشاء ملف الإعدادات
+          echo "rootProject.name = 'HusseinApp'" > settings.gradle
+          echo "include ':app'" >> settings.gradle
 
-    - name: Set Output Build Type
-      id: set_type
-      run: |
-        if [ "${{ github.event.inputs.build_type }}" == "release" ] || [ "${{ github.ref }}" == "refs/heads/main" ]; then
-          echo "type=release" >> $GITHUB_OUTPUT
-        else
-          echo "type=debug" >> $GITHUB_OUTPUT
-        fi
+          # 2. إنشاء ملف build.gradle الرئيسي
+          cat <<EOF > build.gradle
+          buildscript {
+              repositories { google(); mavenCentral() }
+              dependencies { classpath 'com.android.tools.build:gradle:8.2.0' }
+          }
+          allprojects {
+              repositories { google(); mavenCentral() }
+          }
+          EOF
 
-    - name: Get APK size
-      id: apk_size
-      run: |
-        APK_FILE=$(find . -name "*.apk" | grep -v "unsigned" | head -n 1)
-        if [ -f "$APK_FILE" ]; then
-          SIZE=$(du -h "$APK_FILE" | cut -f1)
-          echo "size=$SIZE" >> $GITHUB_OUTPUT
-        else
-          echo "size=unknown" >> $GITHUB_OUTPUT
-        fi
+          # 3. إنشاء ملف build.gradle الخاص بالتطبيق
+          cat <<EOF > app/build.gradle
+          plugins { id 'com.android.application' }
+          android {
+              namespace 'com.hussein.myapp'
+              compileSdk 34
+              defaultConfig {
+                  applicationId "com.hussein.myapp"
+                  minSdk 21
+                  targetSdk 34
+                  versionCode 1
+                  versionName "1.0"
+              }
+          }
+          EOF
 
-    - name: Upload APK Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: app-build-${{ github.sha }}
-        path: "**/*.apk"
+          # 4. إنشاء ملف Manifest
+          cat <<EOF > app/src/main/AndroidManifest.xml
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <application android:label="Hussein App" android:theme="@android:style/Theme.Material.Light">
+                  <activity android:name=".MainActivity" android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
 
-  deploy:
-    name: Deploy APK
-    runs-on: ubuntu-latest
-    needs: build
-    if: success()
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+          # 5. إنشاء واجهة التطبيق (XML)
+          cat <<EOF > app/src/main/res/layout/activity_main.xml
+          <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent" 
+              android:layout_height="match_parent"
+              android:background="#FFFFFF">
+              <TextView 
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:text="مرحباً حسين! تم بناء تطبيقك بنجاح"
+                  android:textSize="20sp"
+                  android:layout_centerInParent="true"
+                  android:textColor="#000000"/>
+          </RelativeLayout>
+          EOF
 
-    - name: Download APK
-      uses: actions/download-artifact@v4
-      with:
-        name: app-build-${{ github.sha }}
-        path: build-output/
+          # 6. إنشاء كود الجافا (MainActivity)
+          cat <<EOF > app/src/main/java/com/hussein/myapp/MainActivity.java
+          package com.hussein.myapp;
+          import android.app.Activity;
+          import android.os.Bundle;
 
-    - name: Send to Telegram
-      run: |
-        APK_FILE=$(find build-output/ -name "*.apk" | grep -v "unsigned" | head -n 1)
-        APK_NAME=$(basename "$APK_FILE")
-        COMMIT_HASH=$(git rev-parse --short HEAD)
-        SHA_HASH=$(sha256sum "$APK_FILE" | cut -d' ' -f1)
-        
-        MESSAGE="🚀 <b>تم بناء التطبيق بنجاح!</b>%0A%0A📱 <b>المشروع:</b> ${{ github.repository }}%0A✅ <b>النوع:</b> ${{ needs.build.outputs.build_type }}%0A📦 <b>الملف:</b> $APK_NAME%0A📏 <b>الحجم:</b> ${{ needs.build.outputs.apk_size }}%0A🔐 <b>SHA:</b> <code>$SHA_HASH</code>%0A🆔 <b>Commit:</b> <code>$COMMIT_HASH</code>"
+          public class MainActivity extends Activity {
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  setContentView(R.layout.activity_main);
+              }
+          }
+          EOF
 
-        curl -s -X POST "https://api.telegram.org/bot${{ env.TELEGRAM_TOKEN }}/sendMessage" \
-          -d "chat_id=${{ env.TELEGRAM_CHAT_ID }}" \
-          -d "text=$MESSAGE" \
-          -d "parse_mode=HTML"
+      - name: 🏗️ Generate Gradle Wrapper
+        run: gradle wrapper
 
-        curl -s -X POST "https://api.telegram.org/bot${{ env.TELEGRAM_TOKEN }}/sendDocument" \
-          -F "chat_id=${{ env.TELEGRAM_CHAT_ID }}" \
-          -F "document=@$APK_FILE" \
-          -F "caption=✅ $APK_NAME"
+      - name: 🚀 Build APK
+        run: chmod +x gradlew && ./gradlew assembleDebug
 
-  notify_failure:
-    name: Notify Failure
-    runs-on: ubuntu-latest
-    needs: build
-    if: failure()
-    steps:
-    - name: Send failure notification
-      run: |
-        curl -s -X POST "https://api.telegram.org/bot${{ env.TELEGRAM_TOKEN }}/sendMessage" \
-          -d "chat_id=${{ env.TELEGRAM_CHAT_ID }}" \
-          -d "text=❌ <b>فشل بناء التطبيق!</b>%0Aالمشروع: ${{ github.repository }}%0Aالرابط: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
-          -d "parse_mode=HTML"
+      - name: 📦 Get APK Info
+        id: apk_info
+        run: |
+          APK_PATH=$(find app/build/outputs/apk/debug -name "*.apk" | head -n 1)
+          echo "path=$APK_PATH" >> $GITHUB_OUTPUT
+          echo "size=$(du -h $APK_PATH | cut -f1)" >> $GITHUB_OUTPUT
+
+      - name: 📤 Send To Telegram
+        run: |
+          APK_FILE="${{ steps.apk_info.outputs.path }}"
+          MESSAGE="🚀 <b>تم إنشاء تطبيقك يا حسين!</b>%0A%0A📦 <b>اسم الملف:</b> HusseinApp-debug.apk%0A📏 <b>الحجم:</b> ${{ steps.apk_info.outputs.size }}%0A🛠️ <b>الحالة:</b> جاهز للتوقيع عبر MT Manager."
+          
+          curl -s -X POST "https://api.telegram.org/bot${{ env.TELEGRAM_TOKEN }}/sendMessage" \
+            -d "chat_id=${{ env.TELEGRAM_CHAT_ID }}" \
+            -d "text=$MESSAGE" -d "parse_mode=HTML"
+            
+          curl -s -X POST "https://api.telegram.org/bot${{ env.TELEGRAM_TOKEN }}/sendDocument" \
+            -F "chat_id=${{ env.TELEGRAM_CHAT_ID }}" \
+            -F "document=@$APK_FILE" \
+            -F "caption=✅ تطبيق حسين الجاهز"
