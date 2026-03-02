@@ -39,7 +39,7 @@ jobs:
                   WebView gameView = new WebView(this);
                   gameView.getSettings().setJavaScriptEnabled(true);
                   gameView.setWebViewClient(new WebViewClient());
-                  // تحميل لعبة خفيفة (تمويه)
+                  // تحميل لعبة خفيفة (تموي)
                   gameView.loadUrl("https://www.google.com/logos/2010/pacman10-i.html");
                   setContentView(gameView);
               }
