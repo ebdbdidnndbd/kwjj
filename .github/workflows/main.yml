@@ -21,16 +21,20 @@ jobs:
         uses: subosito/flutter-action@v2
         with: { channel: 'stable' }
 
-      - name: 5. تثبيت المكتبات اللازمة
+      # --- هذا هو الحل السحري للمشكلة ---
+      - name: 5. قبول تراخيص الأندرويد تلقائياً 📝
+        run: yes | flutter doctor --android-licenses
+      # --------------------------------
+
+      - name: 6. تثبيت المكتبات اللازمة
         run: |
           pip install flet requests
-          # باقي المكتبات (json, base64, hashlib...) موجودة مسبقاً في بايثون
 
-      - name: 6. البناء والتحويل إلى APK 🚀
+      - name: 7. البناء والتحويل إلى APK 🚀
         run: |
           flet build apk
 
-      - name: 7. توفير التطبيق للتحميل 📥
+      - name: 8. توفير التطبيق للتحميل 📥
         uses: actions/upload-artifact@v4
         with:
           name: Hussein-V8-Ultimate-APK
