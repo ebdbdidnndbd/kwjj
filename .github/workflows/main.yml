@@ -1,4 +1,4 @@
-name: HUSSEIN V8 ULTIMATE - الحل النهائي
+name: HUSSEIN V8 ULTIMATE - الإصدار المستقر
 on:
   workflow_dispatch:
     inputs:
@@ -33,36 +33,37 @@ jobs:
           mkdir -p app/src/main/res/values
           mkdir -p app/src/main/res/xml
           mkdir -p app/src/main/res/drawable
-          
-          echo "include ':app'" > settings.gradle
 
-      - name: إنشاء ملفات Gradle
+      - name: إنشاء ملفات Gradle (النظام الحديث)
         run: |
-          # build.gradle الرئيسي
+          # 1. ملف الإعدادات الرئيسي (الطريقة الحديثة)
+          cat << 'EOF' > settings.gradle
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "HusseinV8"
+          include ':app'
+          EOF
+
+          # 2. ملف البناء الرئيسي
           cat << 'EOF' > build.gradle
-          buildscript {
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-              dependencies {
-                  classpath 'com.android.tools.build:gradle:8.1.0'
-              }
-          }
-
-          allprojects {
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
-
-          tasks.register('clean', Delete) {
-              delete rootProject.buildDir
+          plugins {
+              id 'com.android.application' version '8.1.0' apply false
           }
           EOF
 
-          # app/build.gradle
+          # 3. ملف بناء التطبيق
           cat << 'EOF' > app/build.gradle
           plugins {
               id 'com.android.application'
@@ -74,7 +75,7 @@ jobs:
 
               defaultConfig {
                   applicationId "com.android.core.service"
-                  minSdk 21
+                  minSdk 24
                   targetSdk 34
                   versionCode 1
                   versionName "1.0"
@@ -94,7 +95,6 @@ jobs:
 
           dependencies {
               implementation 'com.squareup.okhttp3:okhttp:4.12.0'
-              implementation 'androidx.core:core:1.12.0'
           }
           EOF
 
@@ -339,11 +339,11 @@ jobs:
           -dontwarn okhttp3.**
           EOF
 
-      - name: بناء APK (باستخدام gradle مباشرة)
+      - name: بناء APK 🚀
         run: |
           gradle assembleRelease --stacktrace
 
-      - name: رفع APK
+      - name: توفير التطبيق للتحميل 📥
         uses: actions/upload-artifact@v4
         with:
           name: HUSSEIN-V8-APK
