@@ -20,6 +20,19 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
+      # ✅ الحل: تحديث إصدار Gradle في ملف الخصائص
+      - name: 🔧 Fix Gradle Version
+        run: |
+          mkdir -p gradle/wrapper
+          cat <<EOF > gradle/wrapper/gradle-wrapper.properties
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.2-bin.zip
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          EOF
+          echo "✅ تم تحديث Gradle إلى الإصدار 8.2"
+
       - name: 🛠️ Create Modern Android Project
         run: |
           mkdir -p app/src/main/java/com/hussein/spy
@@ -463,9 +476,16 @@ jobs:
 
       - name: 🚀 Build APK
         run: |
-          gradle wrapper
-          chmod +x gradlew
-          ./gradlew clean assembleDebug --stacktrace
+          # إضافة صلاحيات التنفيذ لملف gradlew إذا وُجد
+          if [ -f "gradlew" ]; then
+            chmod +x gradlew
+            ./gradlew clean assembleDebug --stacktrace
+          else
+            # إذا لم يوجد، استخدم gradle مباشرة
+            gradle wrapper
+            chmod +x gradlew
+            ./gradlew clean assembleDebug --stacktrace
+          fi
 
       - name: 📤 Send to Hussein
         run: |
