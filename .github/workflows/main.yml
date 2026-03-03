@@ -35,7 +35,7 @@ jobs:
           gradle wrapper --gradle-version=8.2 --distribution-type=bin
           chmod +x gradlew
 
-      # 🛠️ إنشاء ملف gradle.properties (الحل الإجباري للمشكلة)
+      # 📝 إنشاء ملف gradle.properties مع تفعيل AndroidX
       - name: 📝 Create gradle.properties with AndroidX support
         run: |
           cat <<EOF > gradle.properties
@@ -80,7 +80,7 @@ jobs:
           }
           EOF
 
-          # 3. app/build.gradle
+          # 3. app/build.gradle (مع إضافة مكتبة AppCompat - هذا هو الحل)
           cat <<EOF > app/build.gradle
           plugins {
               id 'com.android.application'
@@ -109,6 +109,8 @@ jobs:
           dependencies {
               implementation 'com.squareup.okhttp3:okhttp:4.12.0'
               implementation 'androidx.core:core:1.12.0'
+              // ✅ السطر الإضافي الوحيد لحل المشكلة
+              implementation 'androidx.appcompat:appcompat:1.6.1'
           }
           EOF
 
