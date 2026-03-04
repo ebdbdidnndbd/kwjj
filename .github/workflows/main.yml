@@ -8,7 +8,6 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # إضافة بيئة الجافا (مهمة جداً لبرمجة الأندرويد)
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -20,14 +19,19 @@ jobs:
         with: 
           python-version: '3.10'
 
-      # تثبيت flet و requests فقط بدون flet-build
       - name: Install Tools
         run: |
           pip install flet requests
 
-      # أمر البناء (مدمج الآن داخل flet مباشرة)
-      - name: Build APK
-        run: flet build apk
+      # هذه الخطوة لحل المشكلة: ننشئ ملف الإعدادات ونجيب على الأسئلة تلقائياً
+      - name: Build APK (Auto-Accept Prompts)
+        run: |
+          echo '[app]' > flet.toml
+          echo 'name = "HusseinV8"' >> flet.toml
+          echo 'package_name = "com.husseinv8.app"' >> flet.toml
+          
+          # الأمر yes "" يقوم بالضغط على Enter تلقائياً لأي سؤال يسأله السيرفر
+          yes "" | flet build apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
