@@ -21,15 +21,28 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev mesa-utils
 
+      # الضربة الاستباقية: تنزيل نفس النسخة اللي تريدها Flet بالضبط
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.7'
+          channel: 'stable'
+
+      # الموافقة على التراخيص للنسخة المطلوبة
+      - name: Accept Android Licenses
+        run: yes | flutter doctor --android-licenses
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with: 
           python-version: '3.11'
 
+      # تثبيت Flet وإخفاء تحذيرات بايثون
       - name: Install Flet
         run: |
           python -m pip install --upgrade pip
-          pip install requests flet==0.80.5
+          pip install urllib3==1.26.16 charset_normalizer==3.1.0 requests==2.31.0
+          pip install flet==0.80.5
 
       - name: Create Flet Config
         run: |
@@ -37,9 +50,9 @@ jobs:
           echo 'name = "HusseinV8"' >> flet.toml
           echo 'package_name = "com.husseinv8.app"' >> flet.toml
 
-      # الحل السحري: إضافة yes | للموافقة التلقائية على تنزيل بيئة الأندرويد
+      # البناء هسه راح يمر مرور الكرام بدون أي أسئلة
       - name: Build APK
-        run: yes | flet build apk
+        run: flet build apk
         env:
           FLET_CLI_NO_RICH_OUTPUT: "true"
           
