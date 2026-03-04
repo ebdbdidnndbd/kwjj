@@ -39,7 +39,7 @@ jobs:
 
       - name: Create Flet Config
         run: |
-          echo '[app]' > flet.toml
+          echo '[main]' > flet.toml
           echo 'name = "HusseinV8"' >> flet.toml
           echo 'package_name = "com.husseinv8.app"' >> flet.toml
 
