@@ -1,9 +1,17 @@
 name: Build Hussein V8 App
-on: [push]
+on: 
+  push:
+  workflow_dispatch: # ضفت لك هذا حتى تكدر تشغل البناء بضغطة زر بدون ما تسوي Push
+
+env:
+  # إجبار السيرفر على إيقاف الحركات الملونة كلياً
+  FLET_CLI_NO_RICH_OUTPUT: "true"
+  PYTHONIOENCODING: "utf-8"
+  TERM: "xterm-256color"
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04 # استخدمنا السيرفر الأكثر استقراراً لتجنب مشاكل بايثون الجديدة
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -30,23 +38,22 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with: 
-          python-version: '3.11'
+          python-version: '3.10' # نسخة بايثون 3.10 أثبتت كفاءتها وتخلو من أخطاء الـ unicode
 
-      - name: Install Tools
+      - name: Install Tools & Fix Warnings
         run: |
           python -m pip install --upgrade pip
-          pip install flet requests
+          # الإجبار على تثبيت نسخ متطابقة لمسح رسالة التحذير الحمراء نهائياً
+          pip install --force-reinstall urllib3==1.26.16 charset_normalizer==3.1.0 requests==2.31.0
+          pip install flet
 
       - name: Create Flet Config
         run: |
-          echo '[main]' > flet.toml
+          echo '[app]' > flet.toml
           echo 'name = "HusseinV8"' >> flet.toml
           echo 'package_name = "com.husseinv8.app"' >> flet.toml
 
-      # الخطوة الحاسمة: إيقاف الحركات الملونة التي تسبب انهيار السيرفر
       - name: Build APK
-        env:
-          FLET_CLI_NO_RICH_OUTPUT: true   # <--- هذا هو الحل الرسمي للمشكلة!
         run: flet build apk
 
       - name: Upload APK
