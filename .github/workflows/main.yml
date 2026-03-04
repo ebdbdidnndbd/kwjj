@@ -1,17 +1,11 @@
 name: Build Hussein V8 App
 on: 
   push:
-  workflow_dispatch: # ضفت لك هذا حتى تكدر تشغل البناء بضغطة زر بدون ما تسوي Push
-
-env:
-  # إجبار السيرفر على إيقاف الحركات الملونة كلياً
-  FLET_CLI_NO_RICH_OUTPUT: "true"
-  PYTHONIOENCODING: "utf-8"
-  TERM: "xterm-256color"
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04 # استخدمنا السيرفر الأكثر استقراراً لتجنب مشاكل بايثون الجديدة
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -22,30 +16,27 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Install Linux Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev mesa-utils
-
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
 
-      - name: Accept Android Licenses
-        run: yes | flutter doctor --android-licenses
-
       - name: Setup Python
         uses: actions/setup-python@v5
         with: 
-          python-version: '3.10' # نسخة بايثون 3.10 أثبتت كفاءتها وتخلو من أخطاء الـ unicode
+          python-version: '3.11'
 
-      - name: Install Tools & Fix Warnings
+      # تثبيت نظيف بدون إجبار على إصدارات قديمة
+      - name: Install Flet
         run: |
           python -m pip install --upgrade pip
-          # الإجبار على تثبيت نسخ متطابقة لمسح رسالة التحذير الحمراء نهائياً
-          pip install --force-reinstall urllib3==1.26.16 charset_normalizer==3.1.0 requests==2.31.0
-          pip install flet
+          pip install flet requests
+
+      # الحل الجذري: تنظيف ملف المكتبات الخاص بك إجبارياً لمنع انهيار البناء
+      - name: Clean Requirements
+        run: |
+          echo "flet" > requirements.txt
+          echo "requests" >> requirements.txt
 
       - name: Create Flet Config
         run: |
@@ -53,9 +44,10 @@ jobs:
           echo 'name = "HusseinV8"' >> flet.toml
           echo 'package_name = "com.husseinv8.app"' >> flet.toml
 
+      # إضافة --verbose لكشف أي خطأ مخفي في كودك
       - name: Build APK
-        run: flet build apk
-
+        run: flet build apk --verbose
+        
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
