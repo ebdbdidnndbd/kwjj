@@ -4,9 +4,6 @@ on: [push]
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      # إجبار السيرفر على استخدام ترميز النصوص الصحيح لمنع أخطاء الـ unicode
-      PYTHONIOENCODING: 'utf-8' 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -27,18 +24,22 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Accept Android Licenses
-        run: yes | flutter doctor --android-licenses
+      # تهيئة Flutter مسبقاً لمنعه من إرسال نصوص معقدة لـ Flet
+      - name: Pre-run Flutter & Accept Licenses
+        run: |
+          flutter config --no-analytics
+          yes | flutter doctor --android-licenses
+          flutter doctor
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with: 
           python-version: '3.11'
 
-      - name: Install Tools & Fix Requests Warning
+      # تثبيت المكتبات مع تثبيت الإصدارات لمنع التحذيرات
+      - name: Install Tools
         run: |
           python -m pip install --upgrade pip
-          # الحل الجذري: تثبيت إصدارات متطابقة 100% لمنع رسالة التحذير من تدمير الأنيميشن
           pip install urllib3==1.26.16 charset_normalizer==3.1.0 requests==2.31.0
           pip install flet==0.81.0
 
@@ -48,10 +49,16 @@ jobs:
           echo 'name = "HusseinV8"' >> flet.toml
           echo 'package_name = "com.husseinv8.app"' >> flet.toml
 
-      - name: Build APK
-        run: flet build apk
+      # الخطوة السحرية: حقن كود لمعالجة خطأ الـ unicode قبل البناء
+      - name: Build APK (The Ultimate Unicode Fix)
+        run: |
+          echo "import builtins; builtins.unicode = str; builtins.basestring = str" > sitecustomize.py
+          export PYTHONPATH=$PWD
+          export FLUTTER_LOG_LEVEL=error
+          flet build apk
         env:
-          CI: true # إخبار Flet أنه يعمل في سيرفر لتقليل الحركات المعقدة
+          CI: true
+          PYTHONIOENCODING: 'utf-8'
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
