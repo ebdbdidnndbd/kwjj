@@ -8,45 +8,44 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 1. تثبيت بيئة الجافا للأندرويد
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      # 2. الخطوة السحرية: تثبيت Flutter مسبقاً لحل مشاكل التراخيص
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
 
-      # 3. قبول جميع تراخيص أندرويد تلقائياً (هذا يمنع التوقف)
-      - name: Accept Android Licenses
-        run: yes | flutter doctor --android-licenses
+      # 🌟 الحل السحري: تثبيت مكتبات لينكس لإسكات رسائل تحذير Flutter تماماً
+      - name: Install Linux Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev mesa-utils
 
-      # 4. تثبيت بايثون
+      # ترقية بايثون لـ 3.11 لتجنب خطأ الـ unicode
       - name: Setup Python
         uses: actions/setup-python@v5
         with: 
-          python-version: '3.10'
+          python-version: '3.11'
 
-      # 5. تثبيت المكتبات
       - name: Install Tools
-        run: pip install flet requests
+        run: |
+          python -m pip install --upgrade pip
+          pip install flet requests
 
-      # 6. تجهيز ملف الإعدادات الخاص بتطبيقك
       - name: Create Flet Config
         run: |
           echo '[app]' > flet.toml
           echo 'name = "HusseinV8"' >> flet.toml
           echo 'package_name = "com.husseinv8.app"' >> flet.toml
 
-      # 7. البناء النظيف (الآن لن يسأل أي سؤال ولن ينهار)
+      # البناء النظيف
       - name: Build APK
         run: flet build apk
 
-      # 8. رفع التطبيق
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
