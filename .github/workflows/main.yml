@@ -8,44 +8,53 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # 1. تثبيت بيئة الجافا للأندرويد
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: 'stable'
-
-      # 🌟 الحل السحري: تثبيت مكتبات لينكس لإسكات رسائل تحذير Flutter تماماً
+      # 2. تثبيت مكتبات لينكس لإسكات رسائل تحذير Flutter (نجحت في المحاولة السابقة)
       - name: Install Linux Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev mesa-utils
 
-      # ترقية بايثون لـ 3.11 لتجنب خطأ الـ unicode
+      # 3. تثبيت Flutter مسبقاً لحل مشاكل التراخيص
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      # 4. قبول جميع تراخيص أندرويد تلقائياً (هنا كان النقص في المحاولة الأخيرة)
+      - name: Accept Android Licenses
+        run: yes | flutter doctor --android-licenses
+
+      # 5. ترقية بايثون لـ 3.11 
       - name: Setup Python
         uses: actions/setup-python@v5
         with: 
           python-version: '3.11'
 
+      # 6. تثبيت المكتبات المطلوبة
       - name: Install Tools
         run: |
           python -m pip install --upgrade pip
           pip install flet requests
 
+      # 7. تجهيز ملف الإعدادات الخاص بتطبيقك
       - name: Create Flet Config
         run: |
           echo '[app]' > flet.toml
           echo 'name = "HusseinV8"' >> flet.toml
           echo 'package_name = "com.husseinv8.app"' >> flet.toml
 
-      # البناء النظيف
+      # 8. البناء (الآن لن يسأل أي سؤال ولن ينهار لأنه وجد كل شيء جاهزاً)
       - name: Build APK
         run: flet build apk
 
+      # 9. الرفع
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
